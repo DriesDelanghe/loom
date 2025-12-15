@@ -1,0 +1,65 @@
+# Dotnet
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.vs/
+*.dbmdl
+*.vsp
+*.vsscc
+*.TestResults/
+TestResults/
+*.nupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+*.deps.json
+*.runtimeconfig.json
+*.dotCover
+
+# NuGet packages folder
+packages/
+*.snupkg
+
+# Angular
+node_modules/
+dist/
+tmp/
+out-tsc/
+npm-debug.log*
+yarn-error.log
+yarn-debug.log*
+.angular/cache/
+.angular/
+coverage/
+**/.angular/cache/
+
+# Bicep
+*.bicepBuildOutput
+
+# Helm
+.helm/
+charts/
+*.tgz
+
+# Make
+*.d
+
+# System
+.DS_Store
+Thumbs.db
+ehthumbs.db
+.idea/
+*.swp
+.vscode/
+*.env
+.env.*
+!*.env.example
+
+# Logs
+*.log
+
+# Existing config artifacts
+*.local.json
