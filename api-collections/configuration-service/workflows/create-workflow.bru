@@ -1,0 +1,23 @@
+meta {
+  name: Create Workflow Definition
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/workflows
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "tenantId": "{{tenantId}}",
+    "name": "My Workflow",
+    "description": "A sample workflow"
+  }
+}
+
+vars:pre-request {
+  tenantId: 00000000-0000-0000-0000-000000000000
+}

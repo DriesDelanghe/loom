@@ -1,0 +1,15 @@
+meta {
+  name: Get Workflow Definitions
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/workflows?tenantId={{tenantId}}
+  body: none
+  auth: none
+}
+
+vars:pre-request {
+  tenantId: 00000000-0000-0000-0000-000000000000
+}

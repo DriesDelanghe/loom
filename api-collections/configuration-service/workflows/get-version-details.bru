@@ -1,0 +1,15 @@
+meta {
+  name: Get Version Details
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/workflows/versions/{{workflowVersionId}}
+  body: none
+  auth: none
+}
+
+vars:pre-request {
+  workflowVersionId: 7c5cab6b-8ea4-42a7-a0f3-e7c4afac8042
+}

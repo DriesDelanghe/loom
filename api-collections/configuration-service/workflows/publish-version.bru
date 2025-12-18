@@ -1,0 +1,17 @@
+meta {
+  name: Publish Version
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/workflows/versions/{{workflowVersionId}}/publish
+  body: json
+}
+
+body:json {
+  {
+    "publishedBy": "user@example.com"
+  }
+}
+

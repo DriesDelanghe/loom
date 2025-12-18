@@ -1,0 +1,19 @@
+meta {
+  name: Update Node Config
+  type: http
+  seq: 2
+}
+
+put {
+  url: {{baseUrl}}/api/nodes/{{nodeId}}/config
+  body: json
+}
+
+body:json {
+  {
+    "config": {
+      "key": "value"
+    }
+  }
+}
+

@@ -1,0 +1,11 @@
+meta {
+  name: Get Compiled Workflow
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/workflows/versions/{{workflowVersionId}}/compiled
+  body: none
+}
+

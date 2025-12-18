@@ -1,0 +1,20 @@
+meta {
+  name: Bind Trigger to Workflow
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/triggers/bind
+  body: json
+}
+
+body:json {
+  {
+    "triggerId": "{{triggerId}}",
+    "workflowVersionId": "{{workflowVersionId}}",
+    "priority": 1,
+    "enabled": true
+  }
+}
+

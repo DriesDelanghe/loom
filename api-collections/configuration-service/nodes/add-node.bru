@@ -1,0 +1,21 @@
+meta {
+  name: Add Node
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/nodes
+  body: json
+}
+
+body:json {
+  {
+    "workflowVersionId": "{{workflowVersionId}}",
+    "key": "node-1",
+    "name": "My Node",
+    "type": "Action",
+    "config": {}
+  }
+}
+

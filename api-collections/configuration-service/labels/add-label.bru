@@ -1,0 +1,20 @@
+meta {
+  name: Add Label
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/labels
+  body: json
+}
+
+body:json {
+  {
+    "workflowVersionId": "{{workflowVersionId}}",
+    "key": "status",
+    "type": "String",
+    "description": "Status label"
+  }
+}
+

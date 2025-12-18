@@ -1,0 +1,29 @@
+{{- if .Values.layout.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "loom-configuration.fullname" . }}-layout-config
+  labels:
+    {{- include "loom-configuration.labels" . | nindent 4 }}
+    app.kubernetes.io/component: layout
+data:
+  appsettings.json: |
+    {
+      "Logging": {
+        "LogLevel": {
+          "Default": "Information",
+          "Microsoft.AspNetCore": "Warning"
+        }
+      },
+      "AllowedHosts": "*"
+    }
+  flyway.conf: |
+    flyway.url=jdbc:postgresql://{{ include "loom-configuration.dbHost" . }}:{{ .Values.layoutDatabase.port }}/{{ .Values.layoutDatabase.name }}
+    flyway.user={{ .Values.layoutDatabase.serviceUser }}
+    flyway.password={{ .Values.layoutDatabase.servicePassword }}
+    flyway.schemas=public
+    flyway.locations=filesystem:/flyway/sql
+    flyway.baselineOnMigrate=true
+    flyway.validateOnMigrate=true
+{{- end }}
+

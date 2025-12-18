@@ -1,0 +1,11 @@
+meta {
+  name: Remove Node
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{baseUrl}}/api/nodes/{{nodeId}}
+  body: none
+}
+

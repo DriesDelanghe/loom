@@ -1,0 +1,17 @@
+meta {
+  name: Create Draft Version
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/workflows/{{workflowDefinitionId}}/versions/draft
+  body: json
+}
+
+body:json {
+  {
+    "createdBy": "user@example.com"
+  }
+}
+

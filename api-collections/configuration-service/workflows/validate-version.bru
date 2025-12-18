@@ -1,0 +1,11 @@
+meta {
+  name: Validate Workflow Version
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/workflows/versions/{{workflowVersionId}}/validate
+  body: none
+}
+

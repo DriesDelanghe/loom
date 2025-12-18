@@ -1,0 +1,7 @@
+namespace Loom.Services.Layout.Core.Commands;
+
+public interface ICommandHandler<TCommand, TResult>
+{
+    Task<TResult> HandleAsync(TCommand command, CancellationToken cancellationToken = default);
+}
+

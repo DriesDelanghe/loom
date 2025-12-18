@@ -1,0 +1,97 @@
+{{- if .Values.layout.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "loom-configuration.fullname" . }}-layout
+  labels:
+    {{- include "loom-configuration.labels" . | nindent 4 }}
+    app.kubernetes.io/component: layout
+spec:
+  replicas: {{ .Values.layout.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "loom-configuration.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: layout
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/layout-configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/layout-secret.yaml") . | sha256sum }}
+      labels:
+        {{- include "loom-configuration.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: layout
+    spec:
+      serviceAccountName: {{ include "loom-configuration.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: flyway-migrate
+          image: "{{ .Values.layout.migrationImage.repository }}:{{ .Values.layout.migrationImage.tag }}"
+          imagePullPolicy: {{ .Values.layout.migrationImage.pullPolicy }}
+          command: ["flyway", "migrate"]
+          env:
+            - name: FLYWAY_DB_HOST
+              value: "{{ include "loom-configuration.dbHost" . }}"
+            - name: FLYWAY_DB_PORT
+              value: "{{ .Values.layoutDatabase.port | toString }}"
+            - name: FLYWAY_DB_NAME
+              value: "{{ .Values.layoutDatabase.name }}"
+            - name: FLYWAY_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "loom-configuration.layoutServiceSecretName" . }}
+                  key: {{ .Values.layoutDatabase.serviceSecretUsernameKey | default "username" }}
+            - name: FLYWAY_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "loom-configuration.layoutServiceSecretName" . }}
+                  key: {{ .Values.layoutDatabase.serviceSecretPasswordKey | default "password" }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+      containers:
+        - name: layout-api
+          image: "{{ .Values.layout.image.repository }}:{{ .Values.layout.image.tag }}"
+          imagePullPolicy: {{ .Values.layout.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.layout.service.port }}
+              protocol: TCP
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: Production
+            - name: ConnectionStrings__DefaultConnection
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "loom-configuration.layoutServiceSecretName" . }}
+                  key: {{ .Values.layoutDatabase.serviceSecretConnectionStringKey | default "connection-string" }}
+          volumeMounts:
+            - name: app-config
+              mountPath: /app/appsettings.json
+              subPath: appsettings.json
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.layout.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+      volumes:
+        - name: app-config
+          configMap:
+            name: {{ include "loom-configuration.fullname" . }}-layout-config
+{{- end }}
+

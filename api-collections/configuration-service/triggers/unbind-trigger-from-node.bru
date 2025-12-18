@@ -1,0 +1,11 @@
+meta {
+  name: Unbind Trigger from Entry Node
+  type: http
+  seq: 8
+}
+
+delete {
+  url: {{baseUrl}}/api/triggers/bindings/nodes/{{nodeBindingId}}
+  body: none
+}
+

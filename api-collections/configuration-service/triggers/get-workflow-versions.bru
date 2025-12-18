@@ -1,0 +1,11 @@
+meta {
+  name: Get Workflow Versions for Trigger
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/triggers/{{triggerId}}/workflow-versions
+  body: none
+}
+

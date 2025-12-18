@@ -1,0 +1,21 @@
+meta {
+  name: Add Variable
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/variables
+  body: json
+}
+
+body:json {
+  {
+    "workflowVersionId": "{{workflowVersionId}}",
+    "key": "myVariable",
+    "type": "String",
+    "initialValue": "default",
+    "description": "A sample variable"
+  }
+}
+

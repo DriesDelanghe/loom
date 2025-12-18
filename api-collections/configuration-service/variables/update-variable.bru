@@ -1,0 +1,19 @@
+meta {
+  name: Update Variable
+  type: http
+  seq: 2
+}
+
+put {
+  url: {{baseUrl}}/api/variables/{{variableId}}
+  body: json
+}
+
+body:json {
+  {
+    "type": "String",
+    "initialValue": "updated",
+    "description": "Updated description"
+  }
+}
+

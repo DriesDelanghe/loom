@@ -1,0 +1,11 @@
+meta {
+  name: Remove Connection
+  type: http
+  seq: 2
+}
+
+delete {
+  url: {{baseUrl}}/api/connections/{{connectionId}}
+  body: none
+}
+

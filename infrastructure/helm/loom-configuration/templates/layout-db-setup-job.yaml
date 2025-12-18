@@ -1,0 +1,66 @@
+{{- if .Values.layout.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "loom-configuration.fullname" . }}-layout-db-setup
+  labels:
+    {{- include "loom-configuration.labels" . | nindent 4 }}
+    app.kubernetes.io/component: layout-db-setup
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "0"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "loom-configuration.labels" . | nindent 8 }}
+        app.kubernetes.io/component: layout-db-setup
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: db-setup
+          image: postgres:15-alpine
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              export PGHOST PGPORT PGUSER PGPASSWORD DBNAME DBUSER DBPASSWORD
+              
+              echo "Creating database if not exists..."
+              psql -tc "SELECT 1 FROM pg_database WHERE datname = '$DBNAME'" | grep -q 1 || psql -c "CREATE DATABASE $DBNAME"
+              
+              echo "Creating user if not exists..."
+              psql -tc "SELECT 1 FROM pg_roles WHERE rolname = '$DBUSER'" | grep -q 1 || psql -c "CREATE USER $DBUSER WITH PASSWORD '$DBPASSWORD'"
+              
+              echo "Granting privileges..."
+              psql -c "GRANT ALL PRIVILEGES ON DATABASE $DBNAME TO $DBUSER"
+              psql -d $DBNAME -c "GRANT ALL ON SCHEMA public TO $DBUSER"
+              psql -d $DBNAME -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO $DBUSER"
+              psql -d $DBNAME -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO $DBUSER"
+              
+              echo "Database setup completed successfully"
+          env:
+            - name: PGHOST
+              value: "{{ include "loom-configuration.dbHost" . }}"
+            - name: PGPORT
+              value: "{{ .Values.layoutDatabase.port | toString }}"
+            - name: PGUSER
+              value: "{{ .Values.layoutDatabase.adminUser }}"
+            - name: PGPASSWORD
+              value: "{{ .Values.layoutDatabase.adminPassword }}"
+            - name: DBNAME
+              value: "{{ .Values.layoutDatabase.name }}"
+            - name: DBUSER
+              value: "{{ .Values.layoutDatabase.serviceUser }}"
+            - name: DBPASSWORD
+              value: "{{ .Values.layoutDatabase.servicePassword }}"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: false
+{{- end }}
+
