@@ -1,0 +1,93 @@
+replicaCount: 1
+
+image:
+  repository: loom-masterdata-configuration
+  tag: latest
+  pullPolicy: IfNotPresent
+
+migrationImage:
+  repository: loom-masterdata-configuration-migrations
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: "loom-masterdata-configuration-service-account"
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: [ALL]
+  readOnlyRootFilesystem: false
+
+service:
+  type: ClusterIP
+  restPort: 8080
+
+frontend:
+  enabled: true
+  image:
+    repository: loom-data-studio-ui
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: masterdata-configuration.loom.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+database:
+  host: host.docker.internal
+  port: 5432
+  name: loom_masterdata_configuration
+  adminUser: postgres
+  serviceUser: loom_masterdata_config
+
+  # Option 1: Reference existing secrets (recommended for production)
+  # existingAdminSecret: "my-postgres-admin-secret"
+  # adminSecretKey: "password"
+  # existingServiceSecret: "my-service-secret"
+  # serviceSecretPasswordKey: "password"
+  # serviceSecretUsernameKey: "username"
+  # serviceSecretConnectionStringKey: "connection-string"
+
+  # Option 2: Provide passwords via --set at deploy time (never commit these)
+  adminPassword: "postgres"
+  servicePassword: "postgres1"
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+

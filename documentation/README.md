@@ -10,10 +10,12 @@ The documentation is organized by backend services and frontend applications:
 
 - `backend/configuration-service/` - Configuration Service documentation ✅
 - `backend/layout-service/` - Layout Service documentation ✅
+- `backend/master-data-configuration-service/` - Master Data Configuration Service documentation ✅
 
 ### Frontend Applications
 
 - `frontend/loom-configuration-ui/` - Loom Configuration UI documentation ✅
+- `frontend/loom-data-studio-ui/` - Loom Data Studio UI documentation ✅
 
 ### Infrastructure
 

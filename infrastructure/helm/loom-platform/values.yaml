@@ -1,0 +1,207 @@
+# Global settings
+global:
+  imageRegistry: ""
+  imageTag: latest
+
+# Enable/disable services
+loom-configuration:
+  enabled: true
+
+loom-masterdata-configuration:
+  enabled: true
+
+# Configuration Service values
+# These are passed directly to the loom-configuration subchart
+loom-configuration:
+  replicaCount: 1
+  
+  image:
+    repository: loom-configuration
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  migrationImage:
+    repository: loom-configuration-migrations
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  layout:
+    enabled: true
+    image:
+      repository: loom-layout
+      tag: latest
+      pullPolicy: IfNotPresent
+    migrationImage:
+      repository: loom-layout-migrations
+      tag: latest
+      pullPolicy: IfNotPresent
+    replicaCount: 1
+    service:
+      type: ClusterIP
+      port: 8080
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  frontend:
+    enabled: true
+    loomConfigurationUi:
+      image:
+        repository: loom-configuration-ui
+        tag: latest
+        pullPolicy: IfNotPresent
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+
+  service:
+    type: ClusterIP
+    restPort: 8080
+    grpcPort: 50051
+
+  database:
+    host: host.docker.internal
+    port: 5432
+    name: loom_configuration
+    adminUser: postgres
+    serviceUser: loom_config
+    adminPassword: postgres
+    servicePassword: postgres1
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  imagePullSecrets: []
+  nameOverride: ""
+  fullnameOverride: ""
+
+  serviceAccount:
+    create: true
+    annotations: {}
+    name: "loom-configuration-service-account"
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: [ALL]
+    readOnlyRootFilesystem: false
+
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: configuration.loom.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# MasterData Configuration Service values
+# These are passed directly to the loom-masterdata-configuration subchart
+loom-masterdata-configuration:
+  replicaCount: 1
+
+  image:
+    repository: loom-masterdata-configuration
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  migrationImage:
+    repository: loom-masterdata-configuration-migrations
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  frontend:
+    enabled: true
+    image:
+      repository: loom-data-studio-ui
+      tag: latest
+      pullPolicy: IfNotPresent
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+
+  service:
+    type: ClusterIP
+    restPort: 8080
+
+  database:
+    host: host.docker.internal
+    port: 5432
+    name: loom_masterdata_configuration
+    adminUser: postgres
+    serviceUser: loom_masterdata_config
+    adminPassword: postgres
+    servicePassword: postgres1
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  imagePullSecrets: []
+  nameOverride: ""
+  fullnameOverride: ""
+
+  serviceAccount:
+    create: true
+    annotations: {}
+    name: "loom-masterdata-configuration-service-account"
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: [ALL]
+    readOnlyRootFilesystem: false
+
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: masterdata-configuration.loom.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}

@@ -1,0 +1,112 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "loom-masterdata-configuration.fullname" . }}
+  labels:
+    {{- include "loom-masterdata-configuration.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "loom-masterdata-configuration.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+      labels:
+        {{- include "loom-masterdata-configuration.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "loom-masterdata-configuration.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: flyway-migrate
+          image: "{{ .Values.migrationImage.repository }}:{{ .Values.migrationImage.tag }}"
+          imagePullPolicy: {{ .Values.migrationImage.pullPolicy }}
+          command: ["flyway", "migrate"]
+          env:
+            - name: FLYWAY_DB_HOST
+              value: {{ include "loom-masterdata-configuration.dbHost" . | quote }}
+            - name: FLYWAY_DB_PORT
+              value: {{ .Values.database.port | quote }}
+            - name: FLYWAY_DB_NAME
+              value: {{ .Values.database.name | quote }}
+            - name: FLYWAY_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "loom-masterdata-configuration.serviceSecretName" . }}
+                  key: {{ include "loom-masterdata-configuration.serviceSecretUsernameKey" . }}
+            - name: FLYWAY_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "loom-masterdata-configuration.serviceSecretName" . }}
+                  key: {{ include "loom-masterdata-configuration.serviceSecretPasswordKey" . }}
+          volumeMounts:
+            - name: flyway-config
+              mountPath: /flyway/conf/flyway.conf
+              subPath: flyway.conf
+              readOnly: true
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.restPort }}
+              protocol: TCP
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: Production
+            - name: ConnectionStrings__DefaultConnection
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "loom-masterdata-configuration.serviceSecretName" . }}
+                  key: {{ include "loom-masterdata-configuration.serviceSecretConnectionStringKey" . }}
+          volumeMounts:
+            - name: app-config
+              mountPath: /app/appsettings.json
+              subPath: appsettings.json
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+      volumes:
+        - name: app-config
+          configMap:
+            name: {{ include "loom-masterdata-configuration.fullname" . }}-config
+        - name: flyway-config
+          configMap:
+            name: {{ include "loom-masterdata-configuration.fullname" . }}-config
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+

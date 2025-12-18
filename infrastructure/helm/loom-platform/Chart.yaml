@@ -1,0 +1,16 @@
+apiVersion: v2
+name: loom-platform
+description: Loom Platform - Complete deployment including Configuration and MasterData services
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+dependencies:
+  - name: loom-configuration
+    version: 0.1.0
+    repository: "file://../loom-configuration"
+    condition: loom-configuration.enabled
+  - name: loom-masterdata-configuration
+    version: 0.1.0
+    repository: "file://../loom-masterdata-configuration"
+    condition: loom-masterdata-configuration.enabled
+
