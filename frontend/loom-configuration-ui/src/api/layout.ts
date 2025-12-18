@@ -1,7 +1,5 @@
 import { api } from './client'
 
-// const LAYOUT_API_BASE = import.meta.env.VITE_LAYOUT_API_URL || '/api'
-
 interface NodeLayout {
   nodeKey: string
   x: number
