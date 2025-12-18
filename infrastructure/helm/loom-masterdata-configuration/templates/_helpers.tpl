@@ -77,3 +77,4 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- default "connection-string" .Values.database.serviceSecretConnectionStringKey }}
 {{- end }}
 
+

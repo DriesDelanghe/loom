@@ -7,3 +7,4 @@ UPDATE "KeyDefinitions"
 SET "CreatedAt" = NOW() 
 WHERE "CreatedAt" IS NULL;
 
+

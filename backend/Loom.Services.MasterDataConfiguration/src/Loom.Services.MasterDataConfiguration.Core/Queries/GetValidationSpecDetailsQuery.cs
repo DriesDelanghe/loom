@@ -4,3 +4,4 @@ public record GetValidationSpecDetailsQuery(
     Guid ValidationSpecId
 );
 
+

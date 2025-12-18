@@ -46,3 +46,4 @@ public class AddSimpleTransformRuleCommandHandler : ICommandHandler<AddSimpleTra
     }
 }
 
+

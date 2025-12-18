@@ -6,3 +6,4 @@ public record PublishRelatedSchemasCommand(
     IReadOnlyList<Guid> RelatedSchemaIds
 );
 
+

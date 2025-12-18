@@ -417,3 +417,4 @@ This document describes the key user workflows and interactions in the Data Stud
 - **Status Badges**: Visual indicators for schema status
 - **Role Separation**: Schemas organized by role (Incoming, Master, Outgoing)
 
+

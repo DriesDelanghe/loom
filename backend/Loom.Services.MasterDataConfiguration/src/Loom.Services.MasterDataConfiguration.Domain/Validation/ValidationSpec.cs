@@ -14,3 +14,4 @@ public class ValidationSpec
     public DateTime? PublishedAt { get; set; }
 }
 
+

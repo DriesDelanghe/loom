@@ -357,3 +357,4 @@ Before a schema can be published, the system validates:
 - Create new draft from latest published version
 - Delete latest version (if applicable)
 
+

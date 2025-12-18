@@ -55,3 +55,4 @@ public class PublishValidationSpecCommandHandler : ICommandHandler<PublishValida
     }
 }
 
+

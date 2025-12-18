@@ -49,3 +49,4 @@ The service follows a **CQRS (Command Query Responsibility Segregation)** patter
 - **Flyway** migrations for schema management
 - **Entity Framework Core** for ORM
 
+

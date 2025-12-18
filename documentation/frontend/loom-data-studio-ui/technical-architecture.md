@@ -222,3 +222,4 @@ Currently, error boundaries are not implemented. This is planned for future impl
 - ES2020+ features
 - CSS Grid and Flexbox
 
+

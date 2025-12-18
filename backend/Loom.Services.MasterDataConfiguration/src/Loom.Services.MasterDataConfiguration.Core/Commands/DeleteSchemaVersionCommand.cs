@@ -4,3 +4,4 @@ public record DeleteSchemaVersionCommand(
     Guid SchemaVersionId
 );
 
+

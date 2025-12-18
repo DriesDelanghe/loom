@@ -171,3 +171,4 @@ Currently, the frontend does not implement authentication. This is planned for f
 - **Manual Refresh**: User can manually refresh data
 - **Cache Invalidation**: Automatic cache updates after mutations
 
+

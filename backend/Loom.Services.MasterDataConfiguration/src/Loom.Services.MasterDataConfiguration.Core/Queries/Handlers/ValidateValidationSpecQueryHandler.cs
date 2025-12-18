@@ -18,3 +18,4 @@ public class ValidateValidationSpecQueryHandler : IQueryHandler<ValidateValidati
     }
 }
 
+

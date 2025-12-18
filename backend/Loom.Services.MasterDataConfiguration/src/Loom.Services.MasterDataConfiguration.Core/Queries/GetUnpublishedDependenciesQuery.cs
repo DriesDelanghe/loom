@@ -4,3 +4,4 @@ public record GetUnpublishedDependenciesQuery(
     Guid SchemaId
 );
 
+

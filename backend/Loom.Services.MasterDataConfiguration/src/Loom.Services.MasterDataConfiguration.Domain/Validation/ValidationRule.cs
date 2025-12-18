@@ -9,3 +9,4 @@ public class ValidationRule
     public string Parameters { get; set; } = default!; // JSONB
 }
 
+

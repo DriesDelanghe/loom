@@ -4,3 +4,4 @@ public record RemoveValidationRuleCommand(
     Guid RuleId
 );
 
+

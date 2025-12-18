@@ -8,3 +8,4 @@ DROP INDEX IF EXISTS "IX_DataSchemas_TenantId_Key_Version";
 CREATE INDEX IF NOT EXISTS "IX_DataSchemas_TenantId_Key_Version" 
     ON "DataSchemas" ("TenantId", "Key", "Version");
 
+

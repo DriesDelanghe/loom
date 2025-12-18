@@ -15,3 +15,4 @@ CREATE TABLE IF NOT EXISTS "TransformOutputBindings" (
 CREATE UNIQUE INDEX IF NOT EXISTS "IX_TransformOutputBindings_TransformationSpecId_TargetPath" 
     ON "TransformOutputBindings" ("TransformationSpecId", "TargetPath");
 
+

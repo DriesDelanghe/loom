@@ -14,3 +14,4 @@ spec:
   selector:
     {{- include "loom-masterdata-configuration.selectorLabels" . | nindent 4 }}
 
+

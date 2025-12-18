@@ -53,3 +53,4 @@ public class DeleteSchemaCommandHandler : ICommandHandler<DeleteSchemaCommand, b
     }
 }
 
+

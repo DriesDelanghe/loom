@@ -16,3 +16,4 @@ CREATE TABLE IF NOT EXISTS "TransformReferences" (
 CREATE UNIQUE INDEX IF NOT EXISTS "IX_TransformReferences_ParentTransformationSpecId_SourceFieldPath_TargetFieldPath" 
     ON "TransformReferences" ("ParentTransformationSpecId", "SourceFieldPath", "TargetFieldPath");
 
+

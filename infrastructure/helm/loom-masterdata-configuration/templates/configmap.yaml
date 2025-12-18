@@ -24,3 +24,4 @@ data:
     flyway.baselineOnMigrate=true
     flyway.validateOnMigrate=true
 
+

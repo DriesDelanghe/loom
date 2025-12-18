@@ -10,3 +10,4 @@ public class TransformGraphNode
     public string Config { get; set; } = default!; // JSONB
 }
 
+

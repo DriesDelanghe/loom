@@ -54,3 +54,4 @@ The application follows a **component-based architecture** with:
 - **Read-Only Mode**: Immutable view for published versions
 - **Expert Mode**: Advanced features for power users
 
+

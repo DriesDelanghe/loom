@@ -260,3 +260,4 @@ Before a schema can be published, the system validates:
 - Deleting a transformation spec deletes all associated rules, nodes, edges, bindings, references
 - Deleting a business key deletes all associated key fields
 
+
