@@ -7,6 +7,7 @@ import type {
   ValidationResult,
   TransformationSpecDetails,
   CompiledTransformationSpec,
+  CompatibleTransformationSpecSummary,
   IdResponse,
   SuccessResponse,
   SchemaRole,
@@ -248,6 +249,21 @@ export const transformationSpecsApi = {
 
   removeSimpleTransformRule: (ruleId: string) =>
     api.delete<SuccessResponse>(`/transformationspecs/simple-rules/${ruleId}`),
+
+  getCompatibleTransformationSpecs: (
+    sourceSchemaId: string,
+    targetSchemaId: string,
+    status?: SchemaStatus
+  ) => {
+    const params = new URLSearchParams({
+      sourceSchemaId,
+      targetSchemaId,
+    })
+    if (status) params.append('status', status)
+    return api.get<CompatibleTransformationSpecSummary[]>(
+      `/transformationspecs/compatible?${params.toString()}`
+    )
+  },
 
   updateSimpleTransformRule: (
     ruleId: string,

@@ -172,6 +172,13 @@ Base path: `/api`
 - Gets the compiled (execution-ready) representation of a published transformation spec
 - Returns: Compiled transformation structure
 
+### Get Compatible Transformation Specs
+- **GET** `/transformationspecs/compatible?sourceSchemaId={id}&targetSchemaId={id}&status={status?}`
+- Gets transformation specs compatible with source and target schemas
+- Used for discovering nested transformation options
+- Optional status filter (defaults to all statuses)
+- Returns: Array of compatible transformation spec summaries
+
 ### Validate Transformation Spec
 - **POST** `/transformationspecs/{id}/validate`
 - Validates a transformation specification

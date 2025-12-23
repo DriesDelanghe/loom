@@ -197,6 +197,13 @@ The transformation editor manages data transformation specifications.
 - **Rule Configuration**:
   - Source field picker
   - Target field picker
+  - **Nested Transformation Selector** (for Object/Array fields):
+    - Automatically appears when mapping Object or Array fields
+    - Queries backend for compatible transformation specs
+    - Auto-suggests if exactly one match exists
+    - Displays current nested transformation if configured
+    - Allows selection or change of nested transformation
+    - Shows warning if no transformation is defined
   - Converter ID (optional)
   - Required toggle
 - **Rule Actions**:

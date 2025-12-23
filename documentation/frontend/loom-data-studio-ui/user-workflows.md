@@ -208,6 +208,13 @@ This document describes the key user workflows and interactions in the Data Stud
    - Click "Add Rule" button
    - Select source field from dropdown
    - Select target field from dropdown
+   - If fields are Object or Array type:
+     - Nested transformation selector appears
+     - System queries for compatible transformations
+     - If exactly one match: UI suggests it (user must confirm)
+     - If multiple matches: User must select one
+     - If no matches: User must create transformation first
+     - Select or create nested transformation
    - Optionally specify converter ID
    - Configure required flag
    - Rule appears in left panel list
@@ -241,13 +248,38 @@ This document describes the key user workflows and interactions in the Data Stud
 2. **Edit Rule**
    - Click "Edit" button
    - Modify source/target fields, converter, required flag
+   - If fields are Object or Array: Configure nested transformation
    - Click "Save" to apply changes
+
+### Configuring Nested Transformations
+
+1. **When Mapping Object/Array Fields**
+   - Nested transformation selector appears automatically
+   - System queries backend for compatible transformations
+
+2. **Auto-Suggestion**
+   - If exactly one compatible transformation exists: UI suggests it
+   - User must confirm the suggestion
+   - If multiple exist: User must select one
+   - If none exist: User must create transformation first
+
+3. **Select Transformation**
+   - View available transformations with schema names and versions
+   - Expert mode shows: IDs, versions, cardinality, status
+   - Beginner mode shows: Schema names and version numbers
+   - Select transformation and confirm
+
+4. **View Current Transformation**
+   - Current nested transformation displayed if configured
+   - Can change transformation if needed
+   - Warning shown if no transformation is defined
 
 ### Removing Transformation Rules
 
 1. **Click Delete Button**
    - Red X icon next to rule in left panel list
    - Rule is removed immediately
+   - Associated nested transformation reference is also removed
 
 ## Working with Business Keys
 

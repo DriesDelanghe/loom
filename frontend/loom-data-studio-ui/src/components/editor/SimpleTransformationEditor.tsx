@@ -1,12 +1,14 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { transformationSpecsApi, schemasApi } from '../../api/masterdata'
+import { NestedTransformationSelector } from './NestedTransformationSelector'
 import type { SchemaRole, TransformationSpecDetails, DataSchemaSummary } from '../../types'
 
 interface SimpleTransformationEditorProps {
   schemaId: string
   role: SchemaRole
   isReadOnly: boolean
+  expertMode: boolean
   onRuleSelect: (ruleId: string | null) => void
   selectedRuleId: string | null
 }
@@ -15,6 +17,7 @@ export function SimpleTransformationEditor({
   schemaId,
   role,
   isReadOnly,
+  expertMode,
   onRuleSelect,
   selectedRuleId,
 }: SimpleTransformationEditorProps) {
@@ -117,6 +120,25 @@ export function SimpleTransformationEditor({
     return targetSchemaDetails.fields.map((f) => f.path)
   }, [targetSchemaDetails])
 
+  // Get field details for selected source/target paths
+  const selectedSourceField = useMemo(() => {
+    if (!sourceSchemaDetails || !newSourcePath) return null
+    return sourceSchemaDetails.fields.find((f) => f.path === newSourcePath) || null
+  }, [sourceSchemaDetails, newSourcePath])
+
+  const selectedTargetField = useMemo(() => {
+    if (!targetSchemaDetails || !newTargetPath) return null
+    return targetSchemaDetails.fields.find((f) => f.path === newTargetPath) || null
+  }, [targetSchemaDetails, newTargetPath])
+
+  // Check if current rule has nested transformation reference
+  const currentRuleReference = useMemo(() => {
+    if (!transformationSpec || !newSourcePath || !newTargetPath) return null
+    return transformationSpec.references.find(
+      (r) => r.sourceFieldPath === newSourcePath && r.targetFieldPath === newTargetPath
+    ) || null
+  }, [transformationSpec, newSourcePath, newTargetPath])
+
   if (isLoading) {
     return <div className="p-6">Loading transformation spec...</div>
   }
@@ -212,11 +234,15 @@ export function SimpleTransformationEditor({
                 className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-loom-500"
               >
                 <option value="">-- Select source field --</option>
-                {availableSourceFields.map((path: string) => (
-                  <option key={path} value={path}>
-                    {path}
-                  </option>
-                ))}
+                {availableSourceFields.map((path: string) => {
+                  const field = sourceSchemaDetails?.fields.find(f => f.path === path)
+                  const typeLabel = field ? ` (${field.fieldType})` : ''
+                  return (
+                    <option key={path} value={path}>
+                      {path}{typeLabel}
+                    </option>
+                  )
+                })}
               </select>
             </div>
             <div>
@@ -229,11 +255,15 @@ export function SimpleTransformationEditor({
                 className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-loom-500"
               >
                 <option value="">-- Select target field --</option>
-                {availableTargetFields.map((path: string) => (
-                  <option key={path} value={path}>
-                    {path}
-                  </option>
-                ))}
+                {availableTargetFields.map((path: string) => {
+                  const field = targetSchemaDetails?.fields.find(f => f.path === path)
+                  const typeLabel = field ? ` (${field.fieldType})` : ''
+                  return (
+                    <option key={path} value={path}>
+                      {path}{typeLabel}
+                    </option>
+                  )
+                })}
               </select>
             </div>
             <div>
@@ -257,6 +287,47 @@ export function SimpleTransformationEditor({
               />
               <label className="text-xs text-gray-700">Required</label>
             </div>
+
+            {/* Type Compatibility Warning */}
+            {selectedSourceField && selectedTargetField && (
+              (selectedSourceField.fieldType === 'Object' || selectedSourceField.fieldType === 'Array') &&
+              selectedTargetField.fieldType === 'Scalar' ? (
+                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-800">
+                  ⚠️ Invalid mapping: {selectedSourceField.fieldType} field cannot map to Scalar field. 
+                  {selectedSourceField.fieldType} fields must map to {selectedSourceField.fieldType} fields with a nested transformation.
+                </div>
+              ) : selectedSourceField.fieldType === 'Scalar' &&
+                (selectedTargetField.fieldType === 'Object' || selectedTargetField.fieldType === 'Array') ? (
+                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-800">
+                  ⚠️ Invalid mapping: Scalar field cannot map to {selectedTargetField.fieldType} field. 
+                  Scalar fields can only map to Scalar fields.
+                </div>
+              ) : null
+            )}
+
+            {/* Nested Transformation Selector */}
+            {selectedSourceField && selectedTargetField && transformationSpec ? (
+              <NestedTransformationSelector
+                transformationSpecId={transformationSpec.id}
+                sourceFieldPath={newSourcePath}
+                targetFieldPath={newTargetPath}
+                sourceField={selectedSourceField}
+                targetField={selectedTargetField}
+                existingReferenceId={currentRuleReference?.id || null}
+                isReadOnly={isReadOnly}
+                expertMode={expertMode}
+                onReferenceAdded={() => {
+                  queryClient.invalidateQueries({ queryKey: ['transformationSpec', schemaId] })
+                }}
+              />
+            ) : (
+              <div className="text-xs text-gray-400 mt-2">
+                {!selectedSourceField && 'Select source field'}
+                {!selectedTargetField && 'Select target field'}
+                {!transformationSpec && 'Loading transformation spec...'}
+              </div>
+            )}
+
             <div className="flex gap-2">
               <button
                 onClick={() => addRuleMutation.mutate()}

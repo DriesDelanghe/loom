@@ -31,8 +31,17 @@ public class AddTransformReferenceCommandHandler : ICommandHandler<AddTransformR
         if (childSpec == null)
             throw new InvalidOperationException($"Child transformation spec {command.ChildTransformationSpecId} not found");
 
-        if (childSpec.Status != SchemaStatus.Published)
-            throw new InvalidOperationException($"Referenced transformation spec {command.ChildTransformationSpecId} must be Published");
+        // Allow Draft child specs if parent is also Draft (for development workflow)
+        // At publish time, validation will ensure child specs are Published
+        if (childSpec.Status != SchemaStatus.Published && parentSpec.Status != SchemaStatus.Draft)
+        {
+            throw new InvalidOperationException($"Referenced transformation spec {command.ChildTransformationSpecId} must be Published when parent is not Draft");
+        }
+        
+        if (childSpec.Status == SchemaStatus.Archived)
+        {
+            throw new InvalidOperationException($"Referenced transformation spec {command.ChildTransformationSpecId} cannot be Archived");
+        }
 
         var existing = await _dbContext.TransformReferences
             .FirstOrDefaultAsync(r => r.ParentTransformationSpecId == command.ParentTransformationSpecId

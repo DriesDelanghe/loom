@@ -2,6 +2,7 @@ using Loom.Services.MasterDataConfiguration.Core.Commands;
 using Loom.Services.MasterDataConfiguration.Core.Commands.Handlers;
 using Loom.Services.MasterDataConfiguration.Core.Queries;
 using Loom.Services.MasterDataConfiguration.Core.Queries.Handlers;
+using CompatibleTransformationSpecSummary = Loom.Services.MasterDataConfiguration.Core.Queries.Handlers.CompatibleTransformationSpecSummary;
 using Loom.Services.MasterDataConfiguration.Core.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,6 +17,7 @@ public class TransformationSpecsController : ControllerBase
     private readonly RemoveSimpleTransformRuleCommandHandler _removeSimpleRuleHandler;
     private readonly UpdateSimpleTransformRuleCommandHandler _updateSimpleRuleHandler;
     private readonly AddTransformReferenceCommandHandler _addReferenceHandler;
+    private readonly GetCompatibleTransformationSpecsQueryHandler _getCompatibleSpecsHandler;
     private readonly AddTransformGraphNodeCommandHandler _addGraphNodeHandler;
     private readonly AddTransformGraphEdgeCommandHandler _addGraphEdgeHandler;
     private readonly AddTransformOutputBindingCommandHandler _addOutputBindingHandler;
@@ -33,6 +35,7 @@ public class TransformationSpecsController : ControllerBase
         RemoveSimpleTransformRuleCommandHandler removeSimpleRuleHandler,
         UpdateSimpleTransformRuleCommandHandler updateSimpleRuleHandler,
         AddTransformReferenceCommandHandler addReferenceHandler,
+        GetCompatibleTransformationSpecsQueryHandler getCompatibleSpecsHandler,
         AddTransformGraphNodeCommandHandler addGraphNodeHandler,
         AddTransformGraphEdgeCommandHandler addGraphEdgeHandler,
         AddTransformOutputBindingCommandHandler addOutputBindingHandler,
@@ -49,6 +52,7 @@ public class TransformationSpecsController : ControllerBase
         _removeSimpleRuleHandler = removeSimpleRuleHandler;
         _updateSimpleRuleHandler = updateSimpleRuleHandler;
         _addReferenceHandler = addReferenceHandler;
+        _getCompatibleSpecsHandler = getCompatibleSpecsHandler;
         _addGraphNodeHandler = addGraphNodeHandler;
         _addGraphEdgeHandler = addGraphEdgeHandler;
         _addOutputBindingHandler = addOutputBindingHandler;
@@ -269,6 +273,18 @@ public class TransformationSpecsController : ControllerBase
 
         var bindingId = await _addOutputBindingHandler.HandleAsync(command, cancellationToken);
         return Ok(new IdResponse(bindingId));
+    }
+
+    [HttpGet("compatible")]
+    public async Task<ActionResult<IReadOnlyList<CompatibleTransformationSpecSummary>>> GetCompatibleTransformationSpecs(
+        [FromQuery] Guid sourceSchemaId,
+        [FromQuery] Guid targetSchemaId,
+        [FromQuery] Domain.Schemas.SchemaStatus? status,
+        CancellationToken cancellationToken)
+    {
+        var query = new GetCompatibleTransformationSpecsQuery(sourceSchemaId, targetSchemaId, status);
+        var result = await _getCompatibleSpecsHandler.HandleAsync(query, cancellationToken);
+        return Ok(result);
     }
 }
 

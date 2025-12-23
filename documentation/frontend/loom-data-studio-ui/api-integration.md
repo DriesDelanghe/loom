@@ -59,7 +59,8 @@ The API client is organized into logical groups:
 - `addSimpleTransformRule(specId, sourcePath, targetPath, converterId?, required, order)` - Add simple rule
 - `updateSimpleTransformRule(ruleId, sourcePath?, targetPath?, converterId?, required?, order?)` - Update simple rule
 - `removeSimpleTransformRule(ruleId)` - Remove simple rule
-- `addTransformReference(specId, sourceFieldPath, targetFieldPath, childSpecId)` - Add reference
+- `addTransformReference(specId, sourceFieldPath, targetFieldPath, childSpecId)` - Add nested transformation reference
+- `getCompatibleTransformationSpecs(sourceSchemaId, targetSchemaId, status?)` - Get compatible transformations for nested mapping
 - `publishTransformationSpec(specId, publishedBy)` - Publish spec
 - `validateTransformationSpec(specId)` - Validate spec
 - `getCompiledTransformationSpec(specId)` - Get compiled spec

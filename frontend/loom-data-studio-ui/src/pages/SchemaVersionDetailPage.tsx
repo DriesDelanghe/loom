@@ -453,16 +453,17 @@ export function SchemaVersionDetailPage({ role }: SchemaVersionDetailPageProps) 
 
               {/* Center: Transformation Rule Details */}
               <div className="flex-1 bg-gray-50 overflow-hidden">
-                {selectedTransformationRule && transformationSpec ? (
-                  <TransformationRuleInspector
-                    schemaId={versionId!}
-                    transformationSpecId={transformationSpec.id}
-                    targetSchemaId={transformationSpec.targetSchemaId}
-                    rule={selectedTransformationRule}
-                    isReadOnly={isReadOnly}
-                    onClose={() => setSelectedTransformationRuleId(null)}
-                  />
-                ) : (
+                       {selectedTransformationRule && transformationSpec ? (
+                         <TransformationRuleInspector
+                           schemaId={versionId!}
+                           transformationSpecId={transformationSpec.id}
+                           targetSchemaId={transformationSpec.targetSchemaId}
+                           rule={selectedTransformationRule}
+                           isReadOnly={isReadOnly}
+                           expertMode={expertMode}
+                           onClose={() => setSelectedTransformationRuleId(null)}
+                         />
+                       ) : (
                   <div className="h-full flex items-center justify-center text-gray-500">
                     Select a rule to view details
                   </div>

@@ -197,11 +197,43 @@ public class StaticValidationEngine : IStaticValidationEngine
                 if (!sourceFieldRegistry.ContainsKey(rule.SourcePath))
                 {
                     errors.Add(new ValidationError { Field = $"SimpleRules[{rule.Id}].SourcePath", Message = $"Source path '{rule.SourcePath}' does not exist in source schema" });
+                    continue; // Skip further validation if field doesn't exist
                 }
 
                 if (!targetFieldRegistry.ContainsKey(rule.TargetPath))
                 {
                     errors.Add(new ValidationError { Field = $"SimpleRules[{rule.Id}].TargetPath", Message = $"Target path '{rule.TargetPath}' does not exist in target schema" });
+                    continue; // Skip further validation if field doesn't exist
+                }
+
+                var sourceField = sourceFieldRegistry[rule.SourcePath];
+                var targetField = targetFieldRegistry[rule.TargetPath];
+
+                // Validate type compatibility for Simple Rules
+                // Object/Array fields must map to Object/Array fields (and require nested transformation)
+                // Scalar fields can only map to Scalar fields
+                if (sourceField.FieldType == FieldType.Object || sourceField.FieldType == FieldType.Array)
+                {
+                    if (targetField.FieldType == FieldType.Scalar)
+                    {
+                        errors.Add(new ValidationError { Field = $"SimpleRules[{rule.Id}].TypeCompatibility", Message = $"Source field '{rule.SourcePath}' ({sourceField.FieldType}) cannot map to scalar target field '{rule.TargetPath}'. Object/Array fields must map to Object/Array fields with a nested transformation." });
+                    }
+                    else if (targetField.FieldType == FieldType.Object || targetField.FieldType == FieldType.Array)
+                    {
+                        // Object/Array to Object/Array requires a TransformReference
+                        var hasReference = spec.References.Any(r => r.SourceFieldPath == rule.SourcePath && r.TargetFieldPath == rule.TargetPath);
+                        if (!hasReference)
+                        {
+                            errors.Add(new ValidationError { Field = $"SimpleRules[{rule.Id}].MissingNestedTransformation", Message = $"Source field '{rule.SourcePath}' ({sourceField.FieldType}) and target field '{rule.TargetPath}' ({targetField.FieldType}) require a nested transformation. Please configure a TransformReference for this mapping." });
+                        }
+                    }
+                }
+                else if (sourceField.FieldType == FieldType.Scalar)
+                {
+                    if (targetField.FieldType == FieldType.Object || targetField.FieldType == FieldType.Array)
+                    {
+                        errors.Add(new ValidationError { Field = $"SimpleRules[{rule.Id}].TypeCompatibility", Message = $"Scalar source field '{rule.SourcePath}' cannot map to {targetField.FieldType} target field '{rule.TargetPath}'. Scalar fields can only map to scalar fields." });
+                    }
                 }
             }
         }
@@ -246,11 +278,43 @@ public class StaticValidationEngine : IStaticValidationEngine
             if (!sourceFieldRegistry.ContainsKey(reference.SourceFieldPath))
             {
                 errors.Add(new ValidationError { Field = $"References[{reference.Id}].SourceFieldPath", Message = $"Source field path '{reference.SourceFieldPath}' does not exist in source schema" });
+                continue; // Skip further validation if field doesn't exist
             }
 
             if (!targetFieldRegistry.ContainsKey(reference.TargetFieldPath))
             {
                 errors.Add(new ValidationError { Field = $"References[{reference.Id}].TargetFieldPath", Message = $"Target field path '{reference.TargetFieldPath}' does not exist in target schema" });
+                continue; // Skip further validation if field doesn't exist
+            }
+
+            var sourceField = sourceFieldRegistry[reference.SourceFieldPath];
+            var targetField = targetFieldRegistry[reference.TargetFieldPath];
+
+            // Validate field types: must be Object/Object or Array/Array
+            if (sourceField.FieldType != targetField.FieldType)
+            {
+                errors.Add(new ValidationError { Field = $"References[{reference.Id}].FieldTypes", Message = $"Source field '{reference.SourceFieldPath}' (type: {sourceField.FieldType}) and target field '{reference.TargetFieldPath}' (type: {targetField.FieldType}) must have the same field type" });
+            }
+
+            if (sourceField.FieldType != FieldType.Object && sourceField.FieldType != FieldType.Array)
+            {
+                errors.Add(new ValidationError { Field = $"References[{reference.Id}].SourceFieldPath", Message = $"Source field '{reference.SourceFieldPath}' must be Object or Array type for nested transformations" });
+            }
+
+            if (targetField.FieldType != FieldType.Object && targetField.FieldType != FieldType.Array)
+            {
+                errors.Add(new ValidationError { Field = $"References[{reference.Id}].TargetFieldPath", Message = $"Target field '{reference.TargetFieldPath}' must be Object or Array type for nested transformations" });
+            }
+
+            // Validate that fields have ElementSchemaId (required for Object/Array)
+            if (!sourceField.ElementSchemaId.HasValue)
+            {
+                errors.Add(new ValidationError { Field = $"References[{reference.Id}].SourceFieldPath", Message = $"Source field '{reference.SourceFieldPath}' must reference a schema (ElementSchemaId is required)" });
+            }
+
+            if (!targetField.ElementSchemaId.HasValue)
+            {
+                errors.Add(new ValidationError { Field = $"References[{reference.Id}].TargetFieldPath", Message = $"Target field '{reference.TargetFieldPath}' must reference a schema (ElementSchemaId is required)" });
             }
 
             var childSpec = await _dbContext.TransformationSpecs
@@ -259,11 +323,37 @@ public class StaticValidationEngine : IStaticValidationEngine
             if (childSpec == null)
             {
                 errors.Add(new ValidationError { Field = $"References[{reference.Id}].ChildTransformationSpecId", Message = $"Child transformation spec {reference.ChildTransformationSpecId} not found" });
+                continue; // Skip further validation if spec doesn't exist
             }
-            else if (childSpec.Status != SchemaStatus.Published)
+
+            if (childSpec.Status != SchemaStatus.Published)
             {
                 errors.Add(new ValidationError { Field = $"References[{reference.Id}].ChildTransformationSpecId", Message = $"Child transformation spec {reference.ChildTransformationSpecId} must be Published" });
             }
+
+            // Validate schema matching: child spec source must match source field's ElementSchemaId
+            if (sourceField.ElementSchemaId.HasValue && childSpec.SourceSchemaId != sourceField.ElementSchemaId.Value)
+            {
+                errors.Add(new ValidationError { Field = $"References[{reference.Id}].ChildTransformationSpecId", Message = $"Child transformation spec source schema ({childSpec.SourceSchemaId}) must match source field '{reference.SourceFieldPath}' ElementSchemaId ({sourceField.ElementSchemaId.Value})" });
+            }
+
+            // Validate schema matching: child spec target must match target field's ElementSchemaId
+            if (targetField.ElementSchemaId.HasValue && childSpec.TargetSchemaId != targetField.ElementSchemaId.Value)
+            {
+                errors.Add(new ValidationError { Field = $"References[{reference.Id}].ChildTransformationSpecId", Message = $"Child transformation spec target schema ({childSpec.TargetSchemaId}) must match target field '{reference.TargetFieldPath}' ElementSchemaId ({targetField.ElementSchemaId.Value})" });
+            }
+
+            // Validate cardinality compatibility
+            // For Object -> Object: OneToOne is required
+            // For Array -> Array: Any cardinality is allowed (element-wise transformation)
+            if (sourceField.FieldType == FieldType.Object && targetField.FieldType == FieldType.Object)
+            {
+                if (childSpec.Cardinality != Domain.Transformation.Cardinality.OneToOne)
+                {
+                    errors.Add(new ValidationError { Field = $"References[{reference.Id}].ChildTransformationSpecId", Message = $"Child transformation spec for Object->Object mapping must have OneToOne cardinality, but has {childSpec.Cardinality}" });
+                }
+            }
+            // Array -> Array: Cardinality applies to elements, so any is allowed
         }
 
         return new ValidationResult { IsValid = errors.Count == 0, Errors = errors };

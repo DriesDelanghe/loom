@@ -171,6 +171,22 @@ export interface TransformReferenceSummary {
   childTransformationSpecId: string
 }
 
+export interface CompatibleTransformationSpecSummary {
+  id: string
+  sourceSchemaId: string
+  sourceSchemaKey: string
+  sourceSchemaVersion: number
+  targetSchemaId: string
+  targetSchemaKey: string
+  targetSchemaVersion: number
+  mode: TransformationMode
+  cardinality: Cardinality
+  version: number
+  status: SchemaStatus
+  description: string | null
+  publishedAt: string | null
+}
+
 export interface TransformationSpecDetails {
   id: string
   tenantId: string

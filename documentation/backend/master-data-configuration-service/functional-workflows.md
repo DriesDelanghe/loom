@@ -173,9 +173,18 @@ This document describes the key functional workflows and behaviors in the Master
 2. **Add Simple Transform Rules**
    - Add field-to-field mapping rules
    - Specify source path and target path
+   - For Object or Array fields: Configure nested transformation reference
    - Optionally specify converter ID
    - Configure required flag for target field
    - Rules can be added, updated, or removed while in Draft
+
+3. **Configure Nested Transformations (Object/Array Fields)**
+   - When mapping Object or Array fields, a nested transformation is required
+   - System queries for compatible transformation specs
+   - Select existing transformation or create new one
+   - Nested transformation must be Published
+   - For Object → Object: Child transformation must be OneToOne
+   - For Array → Array: Any cardinality is allowed
 
 3. **Publish Transformation Spec**
    - System validates all source paths exist in source schema

@@ -189,6 +189,45 @@ The advanced transformation mode uses a graph-based approach with:
 - **Output Bindings**: Mapping from graph outputs to target schema fields
 - **References**: Child transformation specifications for nested transformations
 
+## Nested Object and Array Transformations
+
+Nested transformations allow you to transform complex object and array structures by delegating to child transformation specifications. This enables reuse of transformation logic and explicit composition of transformations.
+
+### Transform Reference
+
+A **Transform Reference** connects a field mapping in a parent transformation to a child transformation specification that handles the nested transformation.
+
+### Properties
+
+- **ID**: Unique identifier (UUID)
+- **Parent Transformation Spec ID**: The parent transformation specification
+- **Source Field Path**: Path to the source field (Object or Array type)
+- **Target Field Path**: Path to the target field (Object or Array type)
+- **Child Transformation Spec ID**: The child transformation specification to delegate to
+
+### Semantics
+
+When a Transform Reference exists:
+- The parent transformation delegates transformation of the specified source field to the child transformation specification
+- The child transformation's source schema must match the source field's ElementSchemaId
+- The child transformation's target schema must match the target field's ElementSchemaId
+- For Object → Object mappings, the child transformation must have OneToOne cardinality
+- For Array → Array mappings, any cardinality is allowed (applied element-wise)
+
+### Explicit Requirement
+
+**Nested transformations are always explicit** - there is no implicit behavior or auto-inference:
+- Object and Array fields require an explicit Transform Reference when mapping between schemas
+- If a nested transformation is missing, validation will fail at publish time
+- The UI assists with discovery and selection, but all transformations must be explicitly configured
+
+### Reusability
+
+Transform References enable transformation reuse:
+- A single transformation specification can be used by multiple parent transformations
+- Changes to a child transformation affect all parent transformations that reference it
+- This promotes consistency and reduces duplication
+
 ## Business Key Definition
 
 A **Business Key Definition** defines how an object instance is uniquely identified. Business keys are defined per schema version and are immutable once published.

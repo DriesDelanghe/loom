@@ -1,23 +1,26 @@
 import { useState, useMemo } from 'react'
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import { transformationSpecsApi, schemasApi } from '../../api/masterdata'
-import type { SimpleTransformRuleSummary } from '../../types'
+import { NestedTransformationSelector } from './NestedTransformationSelector'
+import type { SimpleTransformRuleSummary, TransformReferenceSummary } from '../../types'
 
 interface TransformationRuleInspectorProps {
   schemaId: string
-  transformationSpecId: string // eslint-disable-line @typescript-eslint/no-unused-vars
+  transformationSpecId: string
   targetSchemaId: string
   rule: SimpleTransformRuleSummary | null
   isReadOnly: boolean
+  expertMode: boolean
   onClose: () => void
 }
 
 export function TransformationRuleInspector({
   schemaId,
-  transformationSpecId: _transformationSpecId,
+  transformationSpecId,
   targetSchemaId,
   rule,
   isReadOnly,
+  expertMode,
   onClose,
 }: TransformationRuleInspectorProps) {
   const queryClient = useQueryClient()
@@ -39,6 +42,13 @@ export function TransformationRuleInspector({
     enabled: !!targetSchemaId,
   })
 
+  // Fetch transformation spec to get references
+  const { data: transformationSpec } = useQuery({
+    queryKey: ['transformationSpec', transformationSpecId],
+    queryFn: () => transformationSpecsApi.getTransformationSpecDetails(transformationSpecId),
+    enabled: !!transformationSpecId,
+  })
+
   const availableSourceFields = useMemo(() => {
     if (!sourceSchemaDetails) return []
     return sourceSchemaDetails.fields.map((f) => f.path)
@@ -48,6 +58,27 @@ export function TransformationRuleInspector({
     if (!targetSchemaDetails) return []
     return targetSchemaDetails.fields.map((f) => f.path)
   }, [targetSchemaDetails])
+
+  // Find source and target fields for the current rule
+  const sourceField = useMemo(() => {
+    if (!sourceSchemaDetails || !rule) return null
+    return sourceSchemaDetails.fields.find((f) => f.path === rule.sourcePath) || null
+  }, [sourceSchemaDetails, rule])
+
+  const targetField = useMemo(() => {
+    if (!targetSchemaDetails || !rule) return null
+    return targetSchemaDetails.fields.find((f) => f.path === rule.targetPath) || null
+  }, [targetSchemaDetails, rule])
+
+  // Find existing transform reference for this rule
+  const ruleReference = useMemo(() => {
+    if (!transformationSpec || !rule) return null
+    return (
+      transformationSpec.references?.find(
+        (r: TransformReferenceSummary) => r.sourceFieldPath === rule.sourcePath && r.targetFieldPath === rule.targetPath
+      ) || null
+    )
+  }, [transformationSpec, rule])
 
   // Initialize form when rule changes or editing starts
   useMemo(() => {
@@ -226,6 +257,25 @@ export function TransformationRuleInspector({
             </div>
           )}
         </div>
+
+        {/* Nested Transformation Selector */}
+        {sourceField && targetField && transformationSpec && (
+          <div className="mt-4">
+            <NestedTransformationSelector
+              transformationSpecId={transformationSpecId}
+              sourceFieldPath={rule.sourcePath}
+              targetFieldPath={rule.targetPath}
+              sourceField={sourceField}
+              targetField={targetField}
+              existingReferenceId={ruleReference?.id || null}
+              isReadOnly={isReadOnly}
+              expertMode={expertMode}
+              onReferenceAdded={() => {
+                queryClient.invalidateQueries({ queryKey: ['transformationSpec', transformationSpecId] })
+              }}
+            />
+          </div>
+        )}
 
         {isReadOnly && (
           <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">

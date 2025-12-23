@@ -16,7 +16,7 @@ export function TransformationEditor({
   schemaId,
   role,
   isReadOnly,
-  expertMode: _expertMode,
+  expertMode,
   onRuleSelect,
   selectedRuleId,
   mode,
@@ -24,13 +24,14 @@ export function TransformationEditor({
   return (
     <div className="h-full flex flex-col">
       {mode === 'Simple' ? (
-        <SimpleTransformationEditor
-          schemaId={schemaId}
-          role={role}
-          isReadOnly={isReadOnly}
-          onRuleSelect={onRuleSelect}
-          selectedRuleId={selectedRuleId}
-        />
+             <SimpleTransformationEditor
+                 schemaId={schemaId}
+                 role={role}
+                 isReadOnly={isReadOnly}
+                 expertMode={expertMode}
+                 onRuleSelect={onRuleSelect}
+                 selectedRuleId={selectedRuleId}
+               />
       ) : (
         <AdvancedTransformationEditorWrapper
           schemaId={schemaId}

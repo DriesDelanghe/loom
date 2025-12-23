@@ -116,6 +116,20 @@ A validation specification can only be published if:
 - Type compatibility is validated for all connections
 - Transformation references must point to Published specs
 
+### Transform Reference Rules
+
+- References can only be added to Draft transformation specs
+- Source and target field paths must exist in their respective schemas
+- Source and target fields must be Object or Array type
+- Source and target fields must have the same type (Object/Object or Array/Array)
+- Both source and target fields must have ElementSchemaId (required for Object/Array)
+- Child transformation spec must exist and be Published
+- Child transformation source schema must match source field's ElementSchemaId
+- Child transformation target schema must match target field's ElementSchemaId
+- For Object → Object mappings: Child transformation must have OneToOne cardinality
+- For Array → Array mappings: Any cardinality is allowed (element-wise transformation)
+- No implicit behavior: All nested transformations must be explicitly defined
+
 ### Mode Switching
 
 - Simple mode can be upgraded to Advanced mode (one-way)
