@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { validationSpecsApi } from '../../api/masterdata'
 import type { ValidationRuleSummary, RuleType, Severity } from '../../types'
@@ -17,14 +17,22 @@ export function ValidationRuleInspector({
   onClose,
 }: ValidationRuleInspectorProps) {
   const queryClient = useQueryClient()
+  const isCreateMode = rule === null
+  
+  // Create mode state
+  const [newRuleType, setNewRuleType] = useState<RuleType>('Field')
+  const [newSeverity, setNewSeverity] = useState<Severity>('Error')
+  const [newFieldPath, setNewFieldPath] = useState('')
+
+  // Edit mode state
   const [isEditing, setIsEditing] = useState(false)
   const [editedRuleType, setEditedRuleType] = useState<RuleType>('Field')
   const [editedSeverity, setEditedSeverity] = useState<Severity>('Error')
   const [editedFieldPath, setEditedFieldPath] = useState('')
 
   // Initialize form when rule changes or editing starts
-  useMemo(() => {
-    if (rule) {
+  useEffect(() => {
+    if (rule && !isCreateMode) {
       setEditedRuleType(rule.ruleType)
       setEditedSeverity(rule.severity)
       try {
@@ -33,8 +41,24 @@ export function ValidationRuleInspector({
       } catch {
         setEditedFieldPath('')
       }
+    } else if (isCreateMode) {
+      // Reset create form
+      setNewRuleType('Field')
+      setNewSeverity('Error')
+      setNewFieldPath('')
     }
-  }, [rule, isEditing])
+  }, [rule, isCreateMode])
+
+  const addRuleMutation = useMutation({
+    mutationFn: () => {
+      const parameters = JSON.stringify({ fieldPath: newFieldPath })
+      return validationSpecsApi.addValidationRule(schemaId, newRuleType, newSeverity, parameters)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['validationSpec', schemaId] })
+      onClose() // Close create mode
+    },
+  })
 
   const updateRuleMutation = useMutation({
     mutationFn: () => {
@@ -53,46 +77,50 @@ export function ValidationRuleInspector({
     },
   })
 
-  if (!rule) {
-    return (
-      <div className="h-full flex items-center justify-center text-gray-500">
-        Select a rule to view details
-      </div>
-    )
-  }
-
   const handleSave = () => {
-    updateRuleMutation.mutate()
+    if (isCreateMode) {
+      addRuleMutation.mutate()
+    } else {
+      updateRuleMutation.mutate()
+    }
   }
 
   const handleCancel = () => {
-    setIsEditing(false)
-    // Reset to original values
-    if (rule) {
-      setEditedRuleType(rule.ruleType)
-      setEditedSeverity(rule.severity)
-      try {
-        const params = JSON.parse(rule.parameters)
-        setEditedFieldPath(params.fieldPath || '')
-      } catch {
-        setEditedFieldPath('')
+    if (isCreateMode) {
+      onClose()
+    } else {
+      setIsEditing(false)
+      // Reset to original values
+      if (rule) {
+        setEditedRuleType(rule.ruleType)
+        setEditedSeverity(rule.severity)
+        try {
+          const params = JSON.parse(rule.parameters)
+          setEditedFieldPath(params.fieldPath || '')
+        } catch {
+          setEditedFieldPath('')
+        }
       }
     }
   }
 
   let parametersObj: any = {}
-  try {
-    parametersObj = JSON.parse(rule.parameters)
-  } catch {
-    // Invalid JSON
+  if (rule && !isCreateMode) {
+    try {
+      parametersObj = JSON.parse(rule.parameters)
+    } catch {
+      // Invalid JSON
+    }
   }
 
   return (
     <div className="h-full flex flex-col">
       <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-        <h3 className="font-semibold text-gray-900">Rule Details</h3>
+        <h3 className="font-semibold text-gray-900">
+          {isCreateMode ? 'Add Validation Rule' : 'Rule Details'}
+        </h3>
         <div className="flex items-center gap-2">
-          {!isReadOnly && !isEditing && (
+          {!isReadOnly && !isCreateMode && !isEditing && (
             <button
               onClick={() => setIsEditing(true)}
               className="px-3 py-1 text-sm text-loom-600 hover:bg-loom-50 rounded"
@@ -100,14 +128,18 @@ export function ValidationRuleInspector({
               Edit
             </button>
           )}
-          {!isReadOnly && isEditing && (
+          {!isReadOnly && (isCreateMode || isEditing) && (
             <>
               <button
                 onClick={handleSave}
-                disabled={updateRuleMutation.isPending}
+                disabled={
+                  (isCreateMode
+                    ? !newFieldPath.trim() || addRuleMutation.isPending
+                    : updateRuleMutation.isPending)
+                }
                 className="px-3 py-1 text-sm bg-loom-600 text-white rounded hover:bg-loom-700 disabled:opacity-50"
               >
-                Save
+                {isCreateMode ? 'Add' : 'Save'}
               </button>
               <button
                 onClick={handleCancel}
@@ -127,6 +159,74 @@ export function ValidationRuleInspector({
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {isCreateMode ? (
+          // Create form
+          <>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Rule Type
+              </label>
+              <select
+                value={newRuleType}
+                onChange={(e) => setNewRuleType(e.target.value as RuleType)}
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-loom-500"
+              >
+                <option value="Field">Field</option>
+                <option value="CrossField">Cross Field</option>
+                <option value="Conditional">Conditional</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Severity
+              </label>
+              <select
+                value={newSeverity}
+                onChange={(e) => setNewSeverity(e.target.value as Severity)}
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-loom-500"
+              >
+                <option value="Error">Error</option>
+                <option value="Warning">Warning</option>
+              </select>
+            </div>
+            {newRuleType === 'Field' && (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Field Path
+                </label>
+                <input
+                  type="text"
+                  value={newFieldPath}
+                  onChange={(e) => setNewFieldPath(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-loom-500"
+                  placeholder="e.g., email"
+                />
+              </div>
+            )}
+            {newRuleType !== 'Field' && (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Parameters (JSON)
+                </label>
+                <textarea
+                  value={JSON.stringify({ fieldPath: newFieldPath }, null, 2)}
+                  onChange={(e) => {
+                    try {
+                      const parsed = JSON.parse(e.target.value)
+                      setNewFieldPath(parsed.fieldPath || '')
+                    } catch {
+                      // Invalid JSON, keep as is
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-xs font-mono focus:outline-none focus:ring-2 focus:ring-loom-500"
+                  rows={6}
+                />
+              </div>
+            )}
+          </>
+        ) : (
+          // Edit/view form
+          <>
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">
             Rule Type
@@ -206,10 +306,12 @@ export function ValidationRuleInspector({
           )}
         </div>
 
-        {isReadOnly && (
-          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
-            This validation spec is Published and cannot be modified.
-          </div>
+            {isReadOnly && (
+              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+                This validation spec is Published and cannot be modified.
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

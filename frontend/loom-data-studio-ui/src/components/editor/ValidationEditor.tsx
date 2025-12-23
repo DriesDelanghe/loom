@@ -1,7 +1,6 @@
-import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { validationSpecsApi } from '../../api/masterdata'
-import type { RuleType, Severity, ValidationSpecDetails } from '../../types'
+import type { ValidationSpecDetails } from '../../types'
 
 interface ValidationEditorProps {
   schemaId: string
@@ -9,6 +8,7 @@ interface ValidationEditorProps {
   expertMode: boolean
   onRuleSelect: (ruleId: string | null) => void
   selectedRuleId: string | null
+  onAddRuleClick: () => void // Callback to trigger create mode in center panel
 }
 
 export function ValidationEditor({
@@ -17,9 +17,9 @@ export function ValidationEditor({
   expertMode: _expertMode,
   onRuleSelect,
   selectedRuleId,
+  onAddRuleClick,
 }: ValidationEditorProps) {
   const queryClient = useQueryClient()
-  const [showAddRule, setShowAddRule] = useState(false)
 
   const removeRuleMutation = useMutation({
     mutationFn: (ruleId: string) => validationSpecsApi.removeValidationRule(ruleId),
@@ -45,19 +45,6 @@ export function ValidationEditor({
     },
   })
 
-  const addRuleMutation = useMutation({
-    mutationFn: (params: { ruleType: RuleType; severity: Severity; parameters: string }) =>
-      validationSpecsApi.addValidationRule(
-        validationSpec!.id,
-        params.ruleType,
-        params.severity,
-        params.parameters
-      ),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['validationSpec', schemaId] })
-      setShowAddRule(false)
-    },
-  })
 
   const createSpecMutation = useMutation({
     mutationFn: () => validationSpecsApi.createValidationSpec(schemaId),
@@ -98,23 +85,13 @@ export function ValidationEditor({
         <h3 className="font-semibold text-gray-900 mb-2">Validation Rules</h3>
         {!isReadOnly && (
           <button
-            onClick={() => setShowAddRule(true)}
+            onClick={onAddRuleClick}
             className="w-full px-3 py-2 text-sm bg-loom-600 text-white rounded-lg hover:bg-loom-700 transition-colors"
           >
             ➕ Add Rule
           </button>
         )}
       </div>
-
-      {showAddRule && !isReadOnly && (
-        <div className="p-4 border-b border-gray-200 bg-gray-50">
-          <h4 className="text-sm font-medium mb-3">Add Validation Rule</h4>
-          <RuleForm
-            onSubmit={(rule) => addRuleMutation.mutate(rule)}
-            onCancel={() => setShowAddRule(false)}
-          />
-        </div>
-      )}
 
       <div className="flex-1 overflow-y-auto p-2">
         {!validationSpec?.rules || validationSpec.rules.length === 0 ? (
@@ -164,78 +141,3 @@ export function ValidationEditor({
   )
 }
 
-interface RuleFormProps {
-  onSubmit: (rule: { ruleType: RuleType; severity: Severity; parameters: string }) => void
-  onCancel: () => void
-}
-
-function RuleForm({ onSubmit, onCancel }: RuleFormProps) {
-  const [ruleType, setRuleType] = useState<RuleType>('Field')
-  const [severity, setSeverity] = useState<Severity>('Error')
-  const [fieldPath, setFieldPath] = useState('')
-
-  const handleSubmit = () => {
-    const parameters = JSON.stringify({ fieldPath })
-    onSubmit({ ruleType, severity, parameters })
-  }
-
-  return (
-    <div className="space-y-2">
-      <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1">
-          Rule Type
-        </label>
-        <select
-          value={ruleType}
-          onChange={(e) => setRuleType(e.target.value as RuleType)}
-          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-loom-500"
-        >
-          <option value="Field">Field</option>
-          <option value="CrossField">Cross Field</option>
-          <option value="Conditional">Conditional</option>
-        </select>
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1">
-          Severity
-        </label>
-        <select
-          value={severity}
-          onChange={(e) => setSeverity(e.target.value as Severity)}
-          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-loom-500"
-        >
-          <option value="Error">Error</option>
-          <option value="Warning">Warning</option>
-        </select>
-      </div>
-      {ruleType === 'Field' && (
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Field Path
-          </label>
-          <input
-            type="text"
-            value={fieldPath}
-            onChange={(e) => setFieldPath(e.target.value)}
-            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-loom-500"
-            placeholder="e.g., email"
-          />
-        </div>
-      )}
-      <div className="flex gap-2">
-        <button
-          onClick={handleSubmit}
-          className="flex-1 px-2 py-1 text-xs bg-loom-600 text-white rounded hover:bg-loom-700"
-        >
-          Add
-        </button>
-        <button
-          onClick={onCancel}
-          className="flex-1 px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
-  )
-}

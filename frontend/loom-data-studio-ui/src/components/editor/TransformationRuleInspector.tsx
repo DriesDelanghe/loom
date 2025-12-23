@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import { transformationSpecsApi, schemasApi } from '../../api/masterdata'
 import { NestedTransformationSelector } from './NestedTransformationSelector'
@@ -24,6 +24,15 @@ export function TransformationRuleInspector({
   onClose,
 }: TransformationRuleInspectorProps) {
   const queryClient = useQueryClient()
+  const isCreateMode = rule === null
+  
+  // Create mode state
+  const [newSourcePath, setNewSourcePath] = useState('')
+  const [newTargetPath, setNewTargetPath] = useState('')
+  const [newConverterId, setNewConverterId] = useState<string | null>(null)
+  const [newRequired, setNewRequired] = useState(false)
+
+  // Edit mode state
   const [isEditing, setIsEditing] = useState(false)
   const [editedSourcePath, setEditedSourcePath] = useState('')
   const [editedTargetPath, setEditedTargetPath] = useState('')
@@ -59,36 +68,73 @@ export function TransformationRuleInspector({
     return targetSchemaDetails.fields.map((f) => f.path)
   }, [targetSchemaDetails])
 
-  // Find source and target fields for the current rule
+  // Find source and target fields for the current rule (or create mode)
   const sourceField = useMemo(() => {
-    if (!sourceSchemaDetails || !rule) return null
+    if (!sourceSchemaDetails) return null
+    if (isCreateMode) {
+      return sourceSchemaDetails.fields.find((f) => f.path === newSourcePath) || null
+    }
+    if (!rule) return null
     return sourceSchemaDetails.fields.find((f) => f.path === rule.sourcePath) || null
-  }, [sourceSchemaDetails, rule])
+  }, [sourceSchemaDetails, rule, isCreateMode, newSourcePath])
 
   const targetField = useMemo(() => {
-    if (!targetSchemaDetails || !rule) return null
+    if (!targetSchemaDetails) return null
+    if (isCreateMode) {
+      return targetSchemaDetails.fields.find((f) => f.path === newTargetPath) || null
+    }
+    if (!rule) return null
     return targetSchemaDetails.fields.find((f) => f.path === rule.targetPath) || null
-  }, [targetSchemaDetails, rule])
+  }, [targetSchemaDetails, rule, isCreateMode, newTargetPath])
 
   // Find existing transform reference for this rule
   const ruleReference = useMemo(() => {
-    if (!transformationSpec || !rule) return null
-    return (
-      transformationSpec.references?.find(
-        (r: TransformReferenceSummary) => r.sourceFieldPath === rule.sourcePath && r.targetFieldPath === rule.targetPath
+    if (!transformationSpec) return null
+    if (isCreateMode) {
+      return transformationSpec.references?.find(
+        (r: TransformReferenceSummary) => r.sourceFieldPath === newSourcePath && r.targetFieldPath === newTargetPath
       ) || null
-    )
-  }, [transformationSpec, rule])
+    }
+    if (!rule) return null
+    return transformationSpec.references?.find(
+      (r: TransformReferenceSummary) => r.sourceFieldPath === rule.sourcePath && r.targetFieldPath === rule.targetPath
+    ) || null
+  }, [transformationSpec, rule, isCreateMode, newSourcePath, newTargetPath])
 
   // Initialize form when rule changes or editing starts
-  useMemo(() => {
-    if (rule) {
+  useEffect(() => {
+    if (rule && !isCreateMode) {
       setEditedSourcePath(rule.sourcePath)
       setEditedTargetPath(rule.targetPath)
       setEditedConverterId(rule.converterId)
       setEditedRequired(rule.required)
+    } else if (isCreateMode) {
+      // Reset create form
+      setNewSourcePath('')
+      setNewTargetPath('')
+      setNewConverterId(null)
+      setNewRequired(false)
     }
-  }, [rule, isEditing])
+  }, [rule, isCreateMode])
+
+  const addRuleMutation = useMutation({
+    mutationFn: () => {
+      if (!transformationSpec) throw new Error('Transformation spec not found')
+      const nextOrder = transformationSpec.simpleRules.length
+      return transformationSpecsApi.addSimpleTransformRule(
+        transformationSpec.id,
+        newSourcePath,
+        newTargetPath,
+        newConverterId,
+        newRequired,
+        nextOrder
+      )
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transformationSpec', schemaId] })
+      onClose() // Close create mode
+    },
+  })
 
   const updateRuleMutation = useMutation({
     mutationFn: () => {
@@ -107,35 +153,37 @@ export function TransformationRuleInspector({
     },
   })
 
-  if (!rule) {
-    return (
-      <div className="h-full flex items-center justify-center text-gray-500">
-        Select a rule to view details
-      </div>
-    )
-  }
-
   const handleSave = () => {
-    updateRuleMutation.mutate()
+    if (isCreateMode) {
+      addRuleMutation.mutate()
+    } else {
+      updateRuleMutation.mutate()
+    }
   }
 
   const handleCancel = () => {
-    setIsEditing(false)
-    // Reset to original values
-    if (rule) {
-      setEditedSourcePath(rule.sourcePath)
-      setEditedTargetPath(rule.targetPath)
-      setEditedConverterId(rule.converterId)
-      setEditedRequired(rule.required)
+    if (isCreateMode) {
+      onClose()
+    } else {
+      setIsEditing(false)
+      // Reset to original values
+      if (rule) {
+        setEditedSourcePath(rule.sourcePath)
+        setEditedTargetPath(rule.targetPath)
+        setEditedConverterId(rule.converterId)
+        setEditedRequired(rule.required)
+      }
     }
   }
 
   return (
     <div className="h-full flex flex-col">
       <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-        <h3 className="font-semibold text-gray-900">Rule Details</h3>
+        <h3 className="font-semibold text-gray-900">
+          {isCreateMode ? 'Add Transformation Rule' : 'Rule Details'}
+        </h3>
         <div className="flex items-center gap-2">
-          {!isReadOnly && !isEditing && (
+          {!isReadOnly && !isCreateMode && !isEditing && (
             <button
               onClick={() => setIsEditing(true)}
               className="px-3 py-1 text-sm text-loom-600 hover:bg-loom-50 rounded"
@@ -143,14 +191,18 @@ export function TransformationRuleInspector({
               Edit
             </button>
           )}
-          {!isReadOnly && isEditing && (
+          {!isReadOnly && (isCreateMode || isEditing) && (
             <>
               <button
                 onClick={handleSave}
-                disabled={updateRuleMutation.isPending}
+                disabled={
+                  (isCreateMode
+                    ? !newSourcePath || !newTargetPath || addRuleMutation.isPending
+                    : updateRuleMutation.isPending)
+                }
                 className="px-3 py-1 text-sm bg-loom-600 text-white rounded hover:bg-loom-700 disabled:opacity-50"
               >
-                Save
+                {isCreateMode ? 'Add' : 'Save'}
               </button>
               <button
                 onClick={handleCancel}
@@ -170,117 +222,219 @@ export function TransformationRuleInspector({
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Source Field
-          </label>
-          {isEditing ? (
-            <select
-              value={editedSourcePath}
-              onChange={(e) => setEditedSourcePath(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-loom-500"
-            >
-              <option value="">-- Select source field --</option>
-              {availableSourceFields.map((path) => (
-                <option key={path} value={path}>
-                  {path}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-sm font-mono text-gray-900">
-              {rule.sourcePath}
+        {isCreateMode ? (
+          // Create form
+          <>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Source Field
+              </label>
+              <select
+                value={newSourcePath}
+                onChange={(e) => setNewSourcePath(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-loom-500"
+              >
+                <option value="">-- Select source field --</option>
+                {availableSourceFields.map((path) => {
+                  const field = sourceSchemaDetails?.fields.find(f => f.path === path)
+                  const typeLabel = field ? ` (${field.fieldType})` : ''
+                  return (
+                    <option key={path} value={path}>
+                      {path}{typeLabel}
+                    </option>
+                  )
+                })}
+              </select>
             </div>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Target Field
-          </label>
-          {isEditing ? (
-            <select
-              value={editedTargetPath}
-              onChange={(e) => setEditedTargetPath(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-loom-500"
-            >
-              <option value="">-- Select target field --</option>
-              {availableTargetFields.map((path) => (
-                <option key={path} value={path}>
-                  {path}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-sm font-mono text-gray-900">
-              {rule.targetPath}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Target Field
+              </label>
+              <select
+                value={newTargetPath}
+                onChange={(e) => setNewTargetPath(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-loom-500"
+              >
+                <option value="">-- Select target field --</option>
+                {availableTargetFields.map((path) => {
+                  const field = targetSchemaDetails?.fields.find(f => f.path === path)
+                  const typeLabel = field ? ` (${field.fieldType})` : ''
+                  return (
+                    <option key={path} value={path}>
+                      {path}{typeLabel}
+                    </option>
+                  )
+                })}
+              </select>
             </div>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Converter
-          </label>
-          {isEditing ? (
-            <input
-              type="text"
-              value={editedConverterId || ''}
-              onChange={(e) => setEditedConverterId(e.target.value || null)}
-              className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-loom-500"
-              placeholder="Converter ID (optional)"
-            />
-          ) : (
-            <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-sm text-gray-900">
-              {rule.converterId || '-'}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Converter (optional)
+              </label>
+              <input
+                type="text"
+                value={newConverterId || ''}
+                onChange={(e) => setNewConverterId(e.target.value || null)}
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-loom-500"
+                placeholder="Converter ID"
+              />
             </div>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Required
-          </label>
-          {isEditing ? (
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
-                checked={editedRequired}
-                onChange={(e) => setEditedRequired(e.target.checked)}
+                checked={newRequired}
+                onChange={(e) => setNewRequired(e.target.checked)}
                 className="rounded"
               />
-              <span className="text-sm text-gray-700">Required</span>
+              <label className="text-xs text-gray-700">Required</label>
             </div>
-          ) : (
-            <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-sm text-gray-900">
-              {rule.required ? 'Yes' : 'No'}
+            {/* Type Compatibility Warning */}
+            {sourceField && targetField && (
+              ((sourceField.fieldType === 'Object' || sourceField.fieldType === 'Array') &&
+              targetField.fieldType === 'Scalar') ? (
+                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-800">
+                  ⚠️ Invalid mapping: {sourceField.fieldType} field cannot map to Scalar field.
+                </div>
+              ) : sourceField.fieldType === 'Scalar' &&
+                (targetField.fieldType === 'Object' || targetField.fieldType === 'Array') ? (
+                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-800">
+                  ⚠️ Invalid mapping: Scalar field cannot map to {targetField.fieldType} field.
+                </div>
+              ) : null
+            )}
+            {/* Nested Transformation Selector */}
+            {sourceField && targetField && transformationSpec && (
+              <NestedTransformationSelector
+                transformationSpecId={transformationSpec.id}
+                sourceFieldPath={newSourcePath}
+                targetFieldPath={newTargetPath}
+                sourceField={sourceField}
+                targetField={targetField}
+                existingReferenceId={ruleReference?.id || null}
+                isReadOnly={isReadOnly}
+                expertMode={expertMode}
+                onReferenceAdded={() => {
+                  queryClient.invalidateQueries({ queryKey: ['transformationSpec', schemaId] })
+                }}
+              />
+            )}
+          </>
+        ) : (
+          // Edit/view form
+          <>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Source Field
+              </label>
+              {isEditing ? (
+                <select
+                  value={editedSourcePath}
+                  onChange={(e) => setEditedSourcePath(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-loom-500"
+                >
+                  <option value="">-- Select source field --</option>
+                  {availableSourceFields.map((path) => (
+                    <option key={path} value={path}>
+                      {path}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-sm font-mono text-gray-900">
+                  {rule.sourcePath}
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* Nested Transformation Selector */}
-        {sourceField && targetField && transformationSpec && (
-          <div className="mt-4">
-            <NestedTransformationSelector
-              transformationSpecId={transformationSpecId}
-              sourceFieldPath={rule.sourcePath}
-              targetFieldPath={rule.targetPath}
-              sourceField={sourceField}
-              targetField={targetField}
-              existingReferenceId={ruleReference?.id || null}
-              isReadOnly={isReadOnly}
-              expertMode={expertMode}
-              onReferenceAdded={() => {
-                queryClient.invalidateQueries({ queryKey: ['transformationSpec', transformationSpecId] })
-              }}
-            />
-          </div>
-        )}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Target Field
+              </label>
+              {isEditing ? (
+                <select
+                  value={editedTargetPath}
+                  onChange={(e) => setEditedTargetPath(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-loom-500"
+                >
+                  <option value="">-- Select target field --</option>
+                  {availableTargetFields.map((path) => (
+                    <option key={path} value={path}>
+                      {path}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-sm font-mono text-gray-900">
+                  {rule.targetPath}
+                </div>
+              )}
+            </div>
 
-        {isReadOnly && (
-          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
-            This transformation spec is Published and cannot be modified.
-          </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Converter
+              </label>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={editedConverterId || ''}
+                  onChange={(e) => setEditedConverterId(e.target.value || null)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-loom-500"
+                  placeholder="Converter ID (optional)"
+                />
+              ) : (
+                <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-sm text-gray-900">
+                  {rule.converterId || '-'}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Required
+              </label>
+              {isEditing ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={editedRequired}
+                    onChange={(e) => setEditedRequired(e.target.checked)}
+                    className="rounded"
+                  />
+                  <span className="text-sm text-gray-700">Required</span>
+                </div>
+              ) : (
+                <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-sm text-gray-900">
+                  {rule.required ? 'Yes' : 'No'}
+                </div>
+              )}
+            </div>
+
+            {/* Nested Transformation Selector */}
+            {sourceField && targetField && transformationSpec && (
+              <div className="mt-4">
+                <NestedTransformationSelector
+                  transformationSpecId={transformationSpecId}
+                  sourceFieldPath={rule.sourcePath}
+                  targetFieldPath={rule.targetPath}
+                  sourceField={sourceField}
+                  targetField={targetField}
+                  existingReferenceId={ruleReference?.id || null}
+                  isReadOnly={isReadOnly}
+                  expertMode={expertMode}
+                  onReferenceAdded={() => {
+                    queryClient.invalidateQueries({ queryKey: ['transformationSpec', transformationSpecId] })
+                  }}
+                />
+              </div>
+            )}
+
+            {isReadOnly && (
+              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+                This transformation spec is Published and cannot be modified.
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

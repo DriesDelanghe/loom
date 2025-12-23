@@ -101,11 +101,11 @@ export function SchemaVersionDetailPage({ role }: SchemaVersionDetailPageProps) 
         return null
       }
     },
-    enabled: activeTab === 'validations' && !!versionId && !!selectedValidationRuleId,
+    enabled: activeTab === 'validations' && !!versionId && !!selectedValidationRuleId && selectedValidationRuleId !== '__create__',
   })
 
   const selectedValidationRule = useMemo(() => {
-    if (!selectedValidationRuleId || !validationSpec) return null
+    if (!selectedValidationRuleId || selectedValidationRuleId === '__create__' || !validationSpec) return null
     return validationSpec.rules?.find((r) => r.id === selectedValidationRuleId) || null
   }, [selectedValidationRuleId, validationSpec])
 
@@ -308,16 +308,26 @@ export function SchemaVersionDetailPage({ role }: SchemaVersionDetailPageProps) 
                 onFieldSelect={setSelectedFieldId}
                 selectedFieldId={selectedFieldId}
                 schemaRole={schemaDetails.role}
+                onAddFieldClick={() => setSelectedFieldId('__create__')}
               />
             </div>
 
             {/* Center: Field Details */}
             <div className="flex-1 bg-gray-50 overflow-hidden">
-              {selectedField ? (
+              {selectedFieldId === '__create__' ? (
+                <InspectorPanel
+                  schemaId={versionId!}
+                  field={null}
+                  isReadOnly={isReadOnly}
+                  schemaRole={schemaDetails.role}
+                  onClose={() => setSelectedFieldId(null)}
+                />
+              ) : selectedField ? (
                 <InspectorPanel
                   schemaId={versionId!}
                   field={selectedField}
                   isReadOnly={isReadOnly}
+                  schemaRole={schemaDetails.role}
                   onClose={() => setSelectedFieldId(null)}
                 />
               ) : (
@@ -339,12 +349,20 @@ export function SchemaVersionDetailPage({ role }: SchemaVersionDetailPageProps) 
                 expertMode={expertMode}
                 onRuleSelect={setSelectedValidationRuleId}
                 selectedRuleId={selectedValidationRuleId}
+                onAddRuleClick={() => setSelectedValidationRuleId('__create__')}
               />
             </div>
 
             {/* Center: Validation Rule Details */}
             <div className="flex-1 bg-gray-50 overflow-hidden">
-              {selectedValidationRule ? (
+              {selectedValidationRuleId === '__create__' ? (
+                <ValidationRuleInspector
+                  schemaId={versionId!}
+                  rule={null}
+                  isReadOnly={isReadOnly}
+                  onClose={() => setSelectedValidationRuleId(null)}
+                />
+              ) : selectedValidationRule ? (
                 <ValidationRuleInspector
                   schemaId={versionId!}
                   rule={selectedValidationRule}
@@ -448,24 +466,43 @@ export function SchemaVersionDetailPage({ role }: SchemaVersionDetailPageProps) 
                   onRuleSelect={setSelectedTransformationRuleId}
                   selectedRuleId={selectedTransformationRuleId}
                   mode={transformationMode}
+                  onAddRuleClick={() => setSelectedTransformationRuleId('__create__')}
                 />
               </div>
 
               {/* Center: Transformation Rule Details */}
               <div className="flex-1 bg-gray-50 overflow-hidden">
-                       {selectedTransformationRule && transformationSpec ? (
-                         <TransformationRuleInspector
-                           schemaId={versionId!}
-                           transformationSpecId={transformationSpec.id}
-                           targetSchemaId={transformationSpec.targetSchemaId}
-                           rule={selectedTransformationRule}
-                           isReadOnly={isReadOnly}
-                           expertMode={expertMode}
-                           onClose={() => setSelectedTransformationRuleId(null)}
-                         />
-                       ) : (
+                {transformationSpec ? (
+                  selectedTransformationRuleId === '__create__' ? (
+                    <TransformationRuleInspector
+                      schemaId={versionId!}
+                      transformationSpecId={transformationSpec.id}
+                      targetSchemaId={transformationSpec.targetSchemaId}
+                      rule={null}
+                      isReadOnly={isReadOnly}
+                      expertMode={expertMode}
+                      onClose={() => setSelectedTransformationRuleId(null)}
+                    />
+                  ) : selectedTransformationRule ? (
+                    <TransformationRuleInspector
+                      schemaId={versionId!}
+                      transformationSpecId={transformationSpec.id}
+                      targetSchemaId={transformationSpec.targetSchemaId}
+                      rule={selectedTransformationRule}
+                      isReadOnly={isReadOnly}
+                      expertMode={expertMode}
+                      onClose={() => setSelectedTransformationRuleId(null)}
+                    />
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-gray-500">
+                      Select a rule to view details
+                    </div>
+                  )
+                ) : (
                   <div className="h-full flex items-center justify-center text-gray-500">
-                    Select a rule to view details
+                    {selectedTransformationRuleId === '__create__' 
+                      ? 'Please create a transformation spec first'
+                      : 'Select a rule to view details'}
                   </div>
                 )}
               </div>

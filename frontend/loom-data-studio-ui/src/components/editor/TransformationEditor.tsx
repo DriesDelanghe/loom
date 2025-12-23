@@ -10,6 +10,7 @@ interface TransformationEditorProps {
   onRuleSelect: (ruleId: string | null) => void
   selectedRuleId: string | null
   mode: TransformationMode
+  onAddRuleClick: () => void // Callback to trigger create mode in center panel
 }
 
 export function TransformationEditor({
@@ -20,6 +21,7 @@ export function TransformationEditor({
   onRuleSelect,
   selectedRuleId,
   mode,
+  onAddRuleClick,
 }: TransformationEditorProps) {
   return (
     <div className="h-full flex flex-col">
@@ -31,6 +33,7 @@ export function TransformationEditor({
                  expertMode={expertMode}
                  onRuleSelect={onRuleSelect}
                  selectedRuleId={selectedRuleId}
+                 onAddRuleClick={onAddRuleClick}
                />
       ) : (
         <AdvancedTransformationEditorWrapper
