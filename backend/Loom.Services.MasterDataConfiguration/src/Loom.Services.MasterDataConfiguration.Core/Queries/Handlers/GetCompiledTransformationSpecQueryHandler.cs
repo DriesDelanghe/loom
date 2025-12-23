@@ -64,7 +64,8 @@ public class GetCompiledTransformationSpecQueryHandler : IQueryHandler<GetCompil
             {
                 SourceFieldPath = r.SourceFieldPath,
                 TargetFieldPath = r.TargetFieldPath,
-                ChildTransformationSpecId = r.ChildTransformationSpecId
+                ChildTransformationSpecId = r.ChildTransformationSpecId,
+                ElementScoped = true // TransformReferences always apply per-element for arrays
             }).ToList()
         };
     }
@@ -117,6 +118,11 @@ public class CompiledTransformReference
     public string SourceFieldPath { get; set; } = default!;
     public string TargetFieldPath { get; set; } = default!;
     public Guid ChildTransformationSpecId { get; set; }
+    /// <summary>
+    /// Indicates that this transformation applies per-element for array fields.
+    /// For arrays, the child transformation is applied to each element.
+    /// </summary>
+    public bool ElementScoped { get; set; }
 }
 
 

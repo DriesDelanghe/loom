@@ -28,7 +28,9 @@ The API client is organized into logical groups:
 - `getSchemaGraph(schemaId)` - Get schema reference graph
 - `createSchema(dataModelId?, role, key, description?)` - Create new schema
 - `addField(schemaId, path, fieldType, scalarType?, elementSchemaId?, required, description?)` - Add field
+  - **Array Fields**: Must provide exactly one of `scalarType` (for scalar arrays) or `elementSchemaId` (for object arrays)
 - `updateField(fieldId, path?, fieldType?, scalarType?, elementSchemaId?, required?, description?)` - Update field
+  - **Array Fields**: Can switch between scalar array and object array by changing `scalarType`/`elementSchemaId`
 - `removeField(fieldId)` - Remove field
 - `publishSchema(schemaId, publishedBy)` - Publish schema
 - `validateSchema(schemaId)` - Validate schema
@@ -60,7 +62,13 @@ The API client is organized into logical groups:
 - `updateSimpleTransformRule(ruleId, sourcePath?, targetPath?, converterId?, required?, order?)` - Update simple rule
 - `removeSimpleTransformRule(ruleId)` - Remove simple rule
 - `addTransformReference(specId, sourceFieldPath, targetFieldPath, childSpecId)` - Add nested transformation reference
+  - **For Object/Object-Array fields**: Child transformation source/target schemas must match ElementSchemaId
+  - **For Scalar Arrays**: Uses virtual scalar element schemas internally
+  - Child transformation must be Published (or Draft if parent is also Draft)
 - `getCompatibleTransformationSpecs(sourceSchemaId, targetSchemaId, status?)` - Get compatible transformations for nested mapping
+  - Queries transformations compatible with source and target schemas
+  - Used for Object/Object-Array field mappings
+  - Returns both Published and Draft transformations (Draft shown with visual indicators)
 - `publishTransformationSpec(specId, publishedBy)` - Publish spec
 - `validateTransformationSpec(specId)` - Validate spec
 - `getCompiledTransformationSpec(specId)` - Get compiled spec
@@ -151,9 +159,12 @@ All API responses are strongly typed:
 
 - `DataSchemaSummary` - Schema list item
 - `DataSchemaDetails` - Complete schema details
-- `FieldDefinitionSummary` - Field information
+- `FieldDefinitionSummary` - Field information (includes `scalarType` and `elementSchemaId` for arrays)
 - `ValidationSpecDetails` - Validation specification
-- `TransformationSpecDetails` - Transformation specification
+- `TransformationSpecDetails` - Transformation specification (includes `references` array)
+- `TransformReferenceSummary` - Nested transformation reference
+- `CompatibleTransformationSpecSummary` - Compatible transformation for nested mapping
+- `CompiledTransformationSpec` - Compiled transformation (includes `elementScoped` flag on references)
 - `KeyDefinitionSummary` - Business key information
 
 ### Type Alignment

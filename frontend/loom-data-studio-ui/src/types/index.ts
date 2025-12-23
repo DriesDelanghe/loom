@@ -234,6 +234,7 @@ export interface CompiledTransformReference {
   sourceFieldPath: string
   targetFieldPath: string
   childTransformationSpecId: string
+  elementScoped: boolean
 }
 
 export interface CompiledTransformationSpec {

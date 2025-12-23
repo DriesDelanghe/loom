@@ -41,6 +41,13 @@ Base path: `/api`
 - **POST** `/schemas/{id}/fields`
 - Adds a field to a schema
 - Request body: `{ path, fieldType, scalarType?, elementSchemaId?, required, description? }`
+- **Field Type Rules**:
+  - **Scalar**: Requires `scalarType`, cannot have `elementSchemaId`
+  - **Object**: Requires `elementSchemaId`, cannot have `scalarType`
+  - **Array**: Requires exactly one of:
+    - `scalarType` (for scalar arrays, e.g., `string[]`, `int[]`)
+    - `elementSchemaId` (for object arrays, e.g., `OrderItem[]`)
+  - Array fields cannot have both `scalarType` and `elementSchemaId`
 - Returns: Field ID
 
 ### Update Field
@@ -175,9 +182,11 @@ Base path: `/api`
 ### Get Compatible Transformation Specs
 - **GET** `/transformationspecs/compatible?sourceSchemaId={id}&targetSchemaId={id}&status={status?}`
 - Gets transformation specs compatible with source and target schemas
-- Used for discovering nested transformation options
-- Optional status filter (defaults to all statuses)
-- Returns: Array of compatible transformation spec summaries
+- Used for discovering nested transformation options for Object/Object-Array fields
+- **For Object/Object-Array fields**: Queries by ElementSchemaId
+- **For Scalar Arrays**: Uses virtual scalar element schemas internally (not exposed via API)
+- Optional status filter (defaults to all statuses, returns both Published and Draft)
+- Returns: Array of compatible transformation spec summaries with schema details
 
 ### Validate Transformation Spec
 - **POST** `/transformationspecs/{id}/validate`
@@ -211,6 +220,12 @@ Base path: `/api`
 - **POST** `/transformationspecs/{id}/references`
 - Adds a transformation reference (child transformation spec)
 - Request body: `{ sourceFieldPath, targetFieldPath, childTransformationSpecId }`
+- **Requirements**:
+  - Source and target fields must be Object or Array type
+  - For Object/Object-Array: Child transformation source/target schemas must match ElementSchemaId
+  - For Scalar Arrays: Child transformation source/target schemas must match virtual scalar element schemas
+  - Child transformation must be Published (or Draft if parent is also Draft)
+  - For Array → Array: Child transformation must have OneToOne cardinality (applies per-element)
 - Returns: Reference ID
 
 ### Publish Transformation Spec

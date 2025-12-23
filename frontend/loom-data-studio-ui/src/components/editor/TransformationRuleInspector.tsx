@@ -101,6 +101,36 @@ export function TransformationRuleInspector({
     ) || null
   }, [transformationSpec, rule, isCreateMode, newSourcePath, newTargetPath])
 
+  // Determine if mapping is allowed in Simple mode
+  const isAllowedInSimpleMode = useMemo(() => {
+    if (!sourceField || !targetField) return true
+
+    const sourceIsScalarArray = sourceField.fieldType === 'Array' && sourceField.scalarType
+    const sourceIsObjectArray = sourceField.fieldType === 'Array' && sourceField.elementSchemaId
+    const targetIsObjectArray = targetField.fieldType === 'Array' && targetField.elementSchemaId
+
+    // Allowed in Simple mode:
+    // - scalar[] → scalar[]
+    // - object[] → scalar[] (field extraction)
+    // - object[] → object[] (same schema)
+    // - scalar → scalar
+    // - object → object (with TransformReference)
+
+    // Blocked: scalar[] → object[] or object
+    if (sourceIsScalarArray && (targetIsObjectArray || targetField.fieldType === 'Object')) {
+      return false
+    }
+
+    // Blocked: object[] → object[] (different schema) without reference
+    if (sourceIsObjectArray && targetIsObjectArray) {
+      if (sourceField.elementSchemaId !== targetField.elementSchemaId && !ruleReference) {
+        return false
+      }
+    }
+
+    return true
+  }, [sourceField, targetField, ruleReference])
+
   // Initialize form when rule changes or editing starts
   useEffect(() => {
     if (rule && !isCreateMode) {
@@ -197,8 +227,8 @@ export function TransformationRuleInspector({
                 onClick={handleSave}
                 disabled={
                   (isCreateMode
-                    ? !newSourcePath || !newTargetPath || addRuleMutation.isPending
-                    : updateRuleMutation.isPending)
+                    ? !newSourcePath || !newTargetPath || addRuleMutation.isPending || !isAllowedInSimpleMode
+                    : updateRuleMutation.isPending || !isAllowedInSimpleMode)
                 }
                 className="px-3 py-1 text-sm bg-loom-600 text-white rounded hover:bg-loom-700 disabled:opacity-50"
               >
@@ -290,17 +320,44 @@ export function TransformationRuleInspector({
             </div>
             {/* Type Compatibility Warning */}
             {sourceField && targetField && (
-              ((sourceField.fieldType === 'Object' || sourceField.fieldType === 'Array') &&
-              targetField.fieldType === 'Scalar') ? (
-                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-800">
-                  ⚠️ Invalid mapping: {sourceField.fieldType} field cannot map to Scalar field.
-                </div>
-              ) : sourceField.fieldType === 'Scalar' &&
-                (targetField.fieldType === 'Object' || targetField.fieldType === 'Array') ? (
-                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-800">
-                  ⚠️ Invalid mapping: Scalar field cannot map to {targetField.fieldType} field.
-                </div>
-              ) : null
+              <>
+                {!isAllowedInSimpleMode && (
+                  <div className="mt-2 p-3 bg-yellow-50 border border-yellow-300 rounded text-xs text-yellow-900">
+                    <div className="font-semibold mb-1">⚠️ This mapping requires an Advanced transformation</div>
+                    <div className="mb-2 text-yellow-800">
+                      {sourceField.fieldType === 'Array' && sourceField.scalarType && 
+                       (targetField.fieldType === 'Array' && targetField.elementSchemaId || targetField.fieldType === 'Object') ? (
+                        <span>Scalar arrays cannot be mapped to object arrays or objects in Simple mode. Use the Advanced editor to configure a TransformReference.</span>
+                      ) : sourceField.fieldType === 'Array' && sourceField.elementSchemaId &&
+                        targetField.fieldType === 'Array' && targetField.elementSchemaId &&
+                        sourceField.elementSchemaId !== targetField.elementSchemaId ? (
+                        <span>Object arrays with different schemas require a TransformReference. Use the Advanced editor to configure nested transformations.</span>
+                      ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // TODO: Navigate to Advanced editor or show message
+                        alert('Please switch to Advanced mode to configure this transformation.')
+                      }}
+                      className="px-3 py-1 bg-yellow-600 text-white rounded hover:bg-yellow-700 text-xs"
+                    >
+                      Open Advanced Editor
+                    </button>
+                  </div>
+                )}
+                {((sourceField.fieldType === 'Object' || sourceField.fieldType === 'Array') &&
+                targetField.fieldType === 'Scalar' && !targetField.scalarType) ? (
+                  <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-800">
+                    ⚠️ Invalid mapping: {sourceField.fieldType} field cannot map to Scalar field. Use a scalar array target for field extraction.
+                  </div>
+                ) : sourceField.fieldType === 'Scalar' &&
+                  (targetField.fieldType === 'Object' || (targetField.fieldType === 'Array' && targetField.elementSchemaId)) ? (
+                  <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-800">
+                    ⚠️ Invalid mapping: Scalar field cannot map to {targetField.fieldType} field. This requires an Advanced transformation.
+                  </div>
+                ) : null}
+              </>
             )}
             {/* Nested Transformation Selector */}
             {sourceField && targetField && transformationSpec && (

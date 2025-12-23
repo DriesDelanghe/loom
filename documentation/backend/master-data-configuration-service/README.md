@@ -19,8 +19,13 @@ The Master Data Configuration Service provides a complete CQRS-based API for man
 
 - Data schema lifecycle (creation, versioning, publishing)
 - Schema structure definition (fields, types, references)
+  - **Scalar fields**: Primitive values (string, int, boolean, etc.)
+  - **Object fields**: References to other schemas
+  - **Array fields**: Arrays of scalars (e.g., `string[]`, `int[]`) or arrays of objects (e.g., `OrderItem[]`)
 - Validation rule configuration
 - Transformation specification (simple and advanced graph-based)
+  - **Simple mode**: Direct field mappings with support for scalar arrays and field extraction
+  - **Advanced mode**: Graph-based transformations with explicit nested transformations
 - Business key definitions for master data
 - Schema tagging and organization
 

@@ -40,9 +40,14 @@ This document describes the business rules and validation logic enforced by the 
 
 - Fields can only be added to Draft schemas
 - Field paths must be unique within a schema
-- Scalar fields must have a scalar type specified
-- Object/Array fields must reference an existing schema
-- Referenced schemas must be Published (when publishing)
+- **Scalar fields**: Must have a scalar type specified, cannot have ElementSchemaId
+- **Object fields**: Must reference an existing schema (ElementSchemaId), cannot have ScalarType
+- **Array fields**: Must have exactly one of:
+  - **Scalar Array**: ScalarType specified (e.g., `string[]`, `int[]`), no ElementSchemaId
+  - **Object Array**: ElementSchemaId specified, no ScalarType
+- Array fields cannot have both ScalarType and ElementSchemaId
+- Array fields cannot have neither ScalarType nor ElementSchemaId
+- Referenced schemas (for Object/Object-Array fields) must be Published (when publishing)
 - Referenced schemas must have the same Role
 
 ### Field Modification
@@ -104,7 +109,16 @@ A validation specification can only be published if:
 
 - Source paths must exist in source schema
 - Target paths must exist in target schema
-- Type compatibility is validated
+- Type compatibility is validated:
+  - **Allowed in Simple Mode**:
+    - `scalar → scalar`: Direct mapping
+    - `scalar[] → scalar[]`: Direct element-wise copy (same scalar type)
+    - `object[] → scalar[]`: Field extraction (extract scalar field from each object)
+    - `object[] → object[]`: Same schema mapping (requires TransformReference)
+  - **Blocked in Simple Mode** (requires Advanced Mode):
+    - `scalar[] → object[]`: Structure-changing transformation (requires TransformReference)
+    - `object[] → object[]`: Different schema mapping without TransformReference
+    - `scalar → object/array`: Structure-changing transformation
 - Rules can be added/modified/removed in Draft specs
 
 ### Advanced Mode Rules
@@ -122,12 +136,14 @@ A validation specification can only be published if:
 - Source and target field paths must exist in their respective schemas
 - Source and target fields must be Object or Array type
 - Source and target fields must have the same type (Object/Object or Array/Array)
-- Both source and target fields must have ElementSchemaId (required for Object/Array)
+- **For Object/Object-Array fields**: Both source and target fields must have ElementSchemaId
+- **For Scalar Arrays**: Fields use ScalarType (virtual schema concept used internally)
 - Child transformation spec must exist and be Published
-- Child transformation source schema must match source field's ElementSchemaId
-- Child transformation target schema must match target field's ElementSchemaId
+- **Schema Matching**:
+  - For Object/Object-Array: Child transformation source/target schemas must match ElementSchemaId
+  - For Scalar Arrays: Child transformation source/target schemas must match virtual scalar element schemas (determined by ScalarType)
 - For Object → Object mappings: Child transformation must have OneToOne cardinality
-- For Array → Array mappings: Any cardinality is allowed (element-wise transformation)
+- For Array → Array mappings: Child transformation must have OneToOne cardinality (applies per-element: one source element → one target element)
 - No implicit behavior: All nested transformations must be explicitly defined
 
 ### Mode Switching
@@ -218,8 +234,10 @@ Before a schema can be published, the system validates:
 
 1. **Schema Structure**
    - All fields have valid configurations
-   - Scalar fields have scalar types
-   - Object/Array fields reference Published schemas (same Role)
+   - Scalar fields have scalar types (no ElementSchemaId)
+   - Object fields have ElementSchemaId (no ScalarType)
+   - Array fields have exactly one of ScalarType OR ElementSchemaId (never both, never neither)
+   - Object/Object-Array fields reference Published schemas (same Role)
    - All referenced schemas are Published
 
 2. **Validation Specifications**

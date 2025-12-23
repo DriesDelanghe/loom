@@ -107,8 +107,11 @@ This document describes the key user workflows and interactions in the Data Stud
 3. **Configure Field**
    - Enter field path (unique identifier)
    - Select field type (Scalar, Object, Array)
-   - If Scalar: Select scalar type from dropdown
-   - If Object/Array: Select referenced schema from autocomplete dropdown
+   - **If Scalar**: Select scalar type from dropdown (String, Integer, Decimal, Boolean, Date, DateTime, Time, Guid)
+   - **If Object**: Select referenced schema from autocomplete dropdown
+   - **If Array**: Select element type:
+     - **Scalar value**: Select scalar type (e.g., String, Integer) → creates scalar array (e.g., `string[]`, `int[]`)
+     - **Object**: Select referenced schema from autocomplete dropdown → creates object array (e.g., `OrderItem[]`)
    - Toggle required flag
    - Add optional description
 
@@ -128,6 +131,8 @@ This document describes the key user workflows and interactions in the Data Stud
 
 3. **Modify Properties**
    - Update path, type, scalar type, reference, required, description
+   - **When switching field types**: UI automatically clears incompatible values (e.g., switching from Scalar to Object clears ScalarType)
+   - **For Array fields**: Can switch between scalar array and object array (element type selector)
    - Click "Save" to apply changes
    - Click "Cancel" to discard changes
 
@@ -206,15 +211,27 @@ This document describes the key user workflows and interactions in the Data Stud
 
 3. **Add Mapping Rules**
    - Click "Add Rule" button
-   - Select source field from dropdown
-   - Select target field from dropdown
-   - If fields are Object or Array type:
+   - Select source field from dropdown (shows field type, e.g., "email (Scalar)", "customer (Object)", "tags (string[])")
+   - Select target field from dropdown (shows field type)
+   - **Type Compatibility Validation**:
+     - UI validates field type compatibility
+     - Shows warnings for incompatible mappings (e.g., Object → Scalar)
+     - **Allowed in Simple Mode**:
+       - `scalar → scalar`: Direct mapping
+       - `scalar[] → scalar[]`: Element-wise copy (same scalar type)
+       - `object[] → scalar[]`: Field extraction
+       - `object[] → object[]`: Same schema (requires TransformReference)
+     - **Blocked in Simple Mode** (shows error with "Open Advanced Editor" button):
+       - `scalar[] → object[]`: Structure-changing transformation
+       - `object[] → object[]`: Different schemas without TransformReference
+   - If fields are Object or Object-Array type:
      - Nested transformation selector appears
-     - System queries for compatible transformations
+     - System queries for compatible transformations (Published and Draft)
      - If exactly one match: UI suggests it (user must confirm)
      - If multiple matches: User must select one
      - If no matches: User must create transformation first
      - Select or create nested transformation
+   - **Note**: Scalar arrays (`scalar[]`) do not require nested transformations for direct mappings
    - Optionally specify converter ID
    - Configure required flag
    - Rule appears in left panel list
@@ -253,26 +270,30 @@ This document describes the key user workflows and interactions in the Data Stud
 
 ### Configuring Nested Transformations
 
-1. **When Mapping Object/Array Fields**
+1. **When Mapping Object/Object-Array Fields**
    - Nested transformation selector appears automatically
-   - System queries backend for compatible transformations
+   - System queries backend for compatible transformations (Published and Draft)
+   - **Note**: Scalar arrays (`scalar[]`) do not require nested transformations for direct mappings
 
 2. **Auto-Suggestion**
    - If exactly one compatible transformation exists: UI suggests it
    - User must confirm the suggestion
    - If multiple exist: User must select one
    - If none exist: User must create transformation first
+   - Draft transformations are shown with visual indicators (yellow background, warning badge)
 
 3. **Select Transformation**
    - View available transformations with schema names and versions
-   - Expert mode shows: IDs, versions, cardinality, status
+   - Expert mode shows: IDs, versions, cardinality, status (Draft/Published)
    - Beginner mode shows: Schema names and version numbers
    - Select transformation and confirm
+   - **Warning**: Draft transformations can only be used when parent transformation is also Draft
 
 4. **View Current Transformation**
    - Current nested transformation displayed if configured
+   - Shows transformation details (schema names, version, status)
    - Can change transformation if needed
-   - Warning shown if no transformation is defined
+   - Warning shown if no transformation is defined (for Object/Object-Array mappings)
 
 ### Removing Transformation Rules
 

@@ -119,8 +119,11 @@ The structure editor manages schema field definitions.
 - **Field Configuration**:
   - Path (unique identifier)
   - Field type selection
-  - Scalar type (if Scalar field)
-  - Schema reference (if Object/Array field) - autocomplete dropdown
+  - **For Scalar fields**: Scalar type dropdown (String, Integer, Decimal, Boolean, Date, DateTime, Time, Guid)
+  - **For Object fields**: Schema reference autocomplete dropdown
+  - **For Array fields**: Element type selector:
+    - **Scalar value**: Select scalar type (e.g., String, Integer) → creates scalar array (e.g., `string[]`, `int[]`)
+    - **Object**: Select schema reference → creates object array (e.g., `OrderItem[]`)
   - Required toggle
   - Description
 - **Field Actions**:
@@ -195,15 +198,20 @@ The transformation editor manages data transformation specifications.
 - **Create Transformation Spec**: Button to create spec and select target schema
 - **Add Rule**: Button to add field mapping rule
 - **Rule Configuration**:
-  - Source field picker
-  - Target field picker
-  - **Nested Transformation Selector** (for Object/Array fields):
-    - Automatically appears when mapping Object or Array fields
-    - Queries backend for compatible transformation specs
+  - Source field picker (shows field type in dropdown)
+  - Target field picker (shows field type in dropdown)
+  - **Type Compatibility Validation**:
+    - Shows warnings for incompatible mappings (e.g., Object → Scalar)
+    - Blocks invalid mappings in Simple mode with helpful error messages
+    - Guides users to Advanced mode for structure-changing transformations
+  - **Nested Transformation Selector** (for Object/Object-Array fields):
+    - Automatically appears when mapping Object or Object-Array fields
+    - Queries backend for compatible transformation specs (Published and Draft)
     - Auto-suggests if exactly one match exists
     - Displays current nested transformation if configured
     - Allows selection or change of nested transformation
     - Shows warning if no transformation is defined
+    - **Note**: Scalar arrays (`scalar[]`) do not require nested transformations for direct mappings
   - Converter ID (optional)
   - Required toggle
 - **Rule Actions**:

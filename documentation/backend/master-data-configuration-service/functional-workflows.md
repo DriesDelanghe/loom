@@ -173,18 +173,27 @@ This document describes the key functional workflows and behaviors in the Master
 2. **Add Simple Transform Rules**
    - Add field-to-field mapping rules
    - Specify source path and target path
-   - For Object or Array fields: Configure nested transformation reference
+   - **Allowed Mappings in Simple Mode**:
+     - `scalar → scalar`: Direct mapping
+     - `scalar[] → scalar[]`: Element-wise copy (same scalar type)
+     - `object[] → scalar[]`: Field extraction (extract scalar field from each object)
+     - `object[] → object[]`: Same schema (requires TransformReference)
+   - **Blocked Mappings** (requires Advanced Mode):
+     - `scalar[] → object[]`: Structure-changing (requires TransformReference)
+     - `object[] → object[]`: Different schemas without TransformReference
+   - For Object/Object-Array fields: Configure nested transformation reference
    - Optionally specify converter ID
    - Configure required flag for target field
    - Rules can be added, updated, or removed while in Draft
 
-3. **Configure Nested Transformations (Object/Array Fields)**
-   - When mapping Object or Array fields, a nested transformation is required
+3. **Configure Nested Transformations (Object/Object-Array Fields)**
+   - When mapping Object or Object-Array fields, a nested transformation is required
    - System queries for compatible transformation specs
    - Select existing transformation or create new one
    - Nested transformation must be Published
    - For Object → Object: Child transformation must be OneToOne
-   - For Array → Array: Any cardinality is allowed
+   - For Array → Array: Child transformation must be OneToOne (applies per-element)
+   - **Note**: Scalar arrays (`scalar[]`) do not require TransformReference for direct mappings
 
 3. **Publish Transformation Spec**
    - System validates all source paths exist in source schema

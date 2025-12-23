@@ -88,10 +88,18 @@ A **Field Definition** represents a field in a data schema. Fields can be scalar
    - The referenced schema must be Published (when publishing)
    - The referenced schema must have the same Role
 
-3. **Array**: An array of elements that reference another schema
-   - Requires an `ElementSchemaId` pointing to another schema
-   - The referenced schema must be Published (when publishing)
-   - The referenced schema must have the same Role
+3. **Array**: An array of elements
+   - **Scalar Array**: Array of scalar values (e.g., `string[]`, `int[]`, `guid[]`)
+     - Requires a `ScalarType` to be specified
+     - Does NOT require an `ElementSchemaId`
+     - Examples: `tags: string[]`, `ids: guid[]`, `prices: decimal[]`
+   - **Object Array**: Array of objects that reference another schema
+     - Requires an `ElementSchemaId` pointing to another schema
+     - Does NOT require a `ScalarType`
+     - The referenced schema must be Published (when publishing)
+     - The referenced schema must have the same Role
+     - Examples: `items: OrderItem[]`, `addresses: Address[]`
+   - **Important**: Array fields must have exactly one of `ScalarType` OR `ElementSchemaId`, never both
 
 ### Field Properties
 
@@ -99,8 +107,8 @@ A **Field Definition** represents a field in a data schema. Fields can be scalar
 - **Data Schema ID**: Parent schema
 - **Path**: Field path within schema (string, max 500 chars, unique within schema)
 - **Field Type**: Scalar, Object, or Array
-- **Scalar Type**: Type of scalar value (if Field Type is Scalar)
-- **Element Schema ID**: Reference to another schema (if Field Type is Object or Array)
+- **Scalar Type**: Type of scalar value (if Field Type is Scalar or Array with scalar elements)
+- **Element Schema ID**: Reference to another schema (if Field Type is Object or Array with object elements)
 - **Required**: Whether field is required (boolean)
 - **Description**: Optional description (max 2000 chars)
 
@@ -209,10 +217,23 @@ A **Transform Reference** connects a field mapping in a parent transformation to
 
 When a Transform Reference exists:
 - The parent transformation delegates transformation of the specified source field to the child transformation specification
-- The child transformation's source schema must match the source field's ElementSchemaId
-- The child transformation's target schema must match the target field's ElementSchemaId
+- **For Object/Object-Array fields**: The child transformation's source schema must match the source field's ElementSchemaId, and target schema must match the target field's ElementSchemaId
+- **For Scalar Arrays**: Scalar arrays use a virtual schema concept internally. The child transformation's source/target schemas must match the scalar element schemas (determined by ScalarType)
 - For Object → Object mappings, the child transformation must have OneToOne cardinality
-- For Array → Array mappings, any cardinality is allowed (applied element-wise)
+- For Array → Array mappings, the child transformation must have OneToOne cardinality (applies per-element: one source element → one target element)
+- Transform References are **always element-scoped** for arrays, meaning the child transformation is applied to each element
+
+### Scalar Array Transformations
+
+Scalar arrays (e.g., `string[]`, `int[]`) can be transformed in two ways:
+
+1. **Direct Mapping (Simple Mode)**: 
+   - `scalar[] → scalar[]` (same scalar type): Direct element-wise copy
+   - `object[] → scalar[]`: Field extraction (extract a scalar field from each object)
+
+2. **Structure-Changing (Advanced Mode)**:
+   - `scalar[] → object[]`: Requires TransformReference with a child transformation that maps the scalar value to an object
+   - Uses a virtual scalar element schema internally for validation
 
 ### Explicit Requirement
 
