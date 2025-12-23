@@ -47,14 +47,44 @@ public class StaticValidationEngine : IStaticValidationEngine
 
         foreach (var field in schema.Fields)
         {
-            if (field.FieldType == FieldType.Scalar && !field.ScalarType.HasValue)
+            // Scalar fields must have ScalarType and no ElementSchemaId
+            if (field.FieldType == FieldType.Scalar)
             {
-                errors.Add(new ValidationError { Field = $"Fields[{field.Path}].ScalarType", Message = "Scalar fields must have a ScalarType" });
+                if (!field.ScalarType.HasValue)
+                {
+                    errors.Add(new ValidationError { Field = $"Fields[{field.Path}].ScalarType", Message = "Scalar fields must have a ScalarType" });
+                }
+                if (field.ElementSchemaId.HasValue)
+                {
+                    errors.Add(new ValidationError { Field = $"Fields[{field.Path}].ElementSchemaId", Message = "Scalar fields cannot have an ElementSchemaId" });
+                }
             }
-
-            if (field.FieldType != FieldType.Scalar && !field.ElementSchemaId.HasValue)
+            // Object fields must have ElementSchemaId and no ScalarType
+            else if (field.FieldType == FieldType.Object)
             {
-                errors.Add(new ValidationError { Field = $"Fields[{field.Path}].ElementSchemaId", Message = "Object and Array fields must have an ElementSchemaId" });
+                if (!field.ElementSchemaId.HasValue)
+                {
+                    errors.Add(new ValidationError { Field = $"Fields[{field.Path}].ElementSchemaId", Message = "Object fields must have an ElementSchemaId" });
+                }
+                if (field.ScalarType.HasValue)
+                {
+                    errors.Add(new ValidationError { Field = $"Fields[{field.Path}].ScalarType", Message = "Object fields cannot have a ScalarType" });
+                }
+            }
+            // Array fields must have exactly one of ScalarType OR ElementSchemaId
+            else if (field.FieldType == FieldType.Array)
+            {
+                var hasScalarType = field.ScalarType.HasValue;
+                var hasElementSchemaId = field.ElementSchemaId.HasValue;
+
+                if (!hasScalarType && !hasElementSchemaId)
+                {
+                    errors.Add(new ValidationError { Field = $"Fields[{field.Path}].ArrayElementType", Message = "Array field must define an element type (either ScalarType for scalar arrays or ElementSchemaId for object arrays)" });
+                }
+                if (hasScalarType && hasElementSchemaId)
+                {
+                    errors.Add(new ValidationError { Field = $"Fields[{field.Path}].ArrayElementType", Message = "Array field cannot define both scalar and object element types" });
+                }
             }
 
             if (field.ElementSchemaId.HasValue)
@@ -209,18 +239,23 @@ public class StaticValidationEngine : IStaticValidationEngine
                 var sourceField = sourceFieldRegistry[rule.SourcePath];
                 var targetField = targetFieldRegistry[rule.TargetPath];
 
+                // Determine if fields are scalar arrays (Array with ScalarType) or object arrays (Array with ElementSchemaId)
+                var sourceIsScalarArray = sourceField.FieldType == FieldType.Array && sourceField.ScalarType.HasValue;
+                var sourceIsObjectArray = sourceField.FieldType == FieldType.Array && sourceField.ElementSchemaId.HasValue;
+                var targetIsScalarArray = targetField.FieldType == FieldType.Array && targetField.ScalarType.HasValue;
+                var targetIsObjectArray = targetField.FieldType == FieldType.Array && targetField.ElementSchemaId.HasValue;
+
                 // Validate type compatibility for Simple Rules
-                // Object/Array fields must map to Object/Array fields (and require nested transformation)
-                // Scalar fields can only map to Scalar fields
-                if (sourceField.FieldType == FieldType.Object || sourceField.FieldType == FieldType.Array)
+                if (sourceField.FieldType == FieldType.Object || sourceIsObjectArray)
                 {
-                    if (targetField.FieldType == FieldType.Scalar)
+                    // Object or object array cannot map to scalar
+                    if (targetField.FieldType == FieldType.Scalar || targetIsScalarArray)
                     {
-                        errors.Add(new ValidationError { Field = $"SimpleRules[{rule.Id}].TypeCompatibility", Message = $"Source field '{rule.SourcePath}' ({sourceField.FieldType}) cannot map to scalar target field '{rule.TargetPath}'. Object/Array fields must map to Object/Array fields with a nested transformation." });
+                        errors.Add(new ValidationError { Field = $"SimpleRules[{rule.Id}].TypeCompatibility", Message = $"Source field '{rule.SourcePath}' ({sourceField.FieldType}) cannot map to scalar target field '{rule.TargetPath}'. Object/Object-Array fields must map to Object/Object-Array fields with a nested transformation." });
                     }
-                    else if (targetField.FieldType == FieldType.Object || targetField.FieldType == FieldType.Array)
+                    // Object/Object-Array to Object/Object-Array requires a TransformReference
+                    else if (targetField.FieldType == FieldType.Object || targetIsObjectArray)
                     {
-                        // Object/Array to Object/Array requires a TransformReference
                         var hasReference = spec.References.Any(r => r.SourceFieldPath == rule.SourcePath && r.TargetFieldPath == rule.TargetPath);
                         if (!hasReference)
                         {
@@ -228,12 +263,14 @@ public class StaticValidationEngine : IStaticValidationEngine
                         }
                     }
                 }
-                else if (sourceField.FieldType == FieldType.Scalar)
+                else if (sourceField.FieldType == FieldType.Scalar || sourceIsScalarArray)
                 {
-                    if (targetField.FieldType == FieldType.Object || targetField.FieldType == FieldType.Array)
+                    // Scalar or scalar array can only map to scalar or scalar array
+                    if (targetField.FieldType == FieldType.Object || targetIsObjectArray)
                     {
                         errors.Add(new ValidationError { Field = $"SimpleRules[{rule.Id}].TypeCompatibility", Message = $"Scalar source field '{rule.SourcePath}' cannot map to {targetField.FieldType} target field '{rule.TargetPath}'. Scalar fields can only map to scalar fields." });
                     }
+                    // Scalar arrays can map to scalar arrays without TransformReference (element-wise copy)
                 }
             }
         }
@@ -306,15 +343,26 @@ public class StaticValidationEngine : IStaticValidationEngine
                 errors.Add(new ValidationError { Field = $"References[{reference.Id}].TargetFieldPath", Message = $"Target field '{reference.TargetFieldPath}' must be Object or Array type for nested transformations" });
             }
 
-            // Validate that fields have ElementSchemaId (required for Object/Array)
-            if (!sourceField.ElementSchemaId.HasValue)
+            // Validate that fields have ElementSchemaId (required for Object/Object-Array transformations)
+            // Scalar arrays (Array with ScalarType) do not require TransformReference
+            if (sourceField.FieldType == FieldType.Array && sourceField.ScalarType.HasValue)
             {
-                errors.Add(new ValidationError { Field = $"References[{reference.Id}].SourceFieldPath", Message = $"Source field '{reference.SourceFieldPath}' must reference a schema (ElementSchemaId is required)" });
+                errors.Add(new ValidationError { Field = $"References[{reference.Id}].SourceFieldPath", Message = $"Source field '{reference.SourceFieldPath}' is a scalar array and does not require a nested transformation. Scalar arrays can be mapped directly." });
             }
 
-            if (!targetField.ElementSchemaId.HasValue)
+            if (targetField.FieldType == FieldType.Array && targetField.ScalarType.HasValue)
             {
-                errors.Add(new ValidationError { Field = $"References[{reference.Id}].TargetFieldPath", Message = $"Target field '{reference.TargetFieldPath}' must reference a schema (ElementSchemaId is required)" });
+                errors.Add(new ValidationError { Field = $"References[{reference.Id}].TargetFieldPath", Message = $"Target field '{reference.TargetFieldPath}' is a scalar array and does not require a nested transformation. Scalar arrays can be mapped directly." });
+            }
+
+            if (!sourceField.ElementSchemaId.HasValue && sourceField.FieldType != FieldType.Array)
+            {
+                errors.Add(new ValidationError { Field = $"References[{reference.Id}].SourceFieldPath", Message = $"Source field '{reference.SourceFieldPath}' must reference a schema (ElementSchemaId is required for Object/Object-Array fields)" });
+            }
+
+            if (!targetField.ElementSchemaId.HasValue && targetField.FieldType != FieldType.Array)
+            {
+                errors.Add(new ValidationError { Field = $"References[{reference.Id}].TargetFieldPath", Message = $"Target field '{reference.TargetFieldPath}' must reference a schema (ElementSchemaId is required for Object/Object-Array fields)" });
             }
 
             var childSpec = await _dbContext.TransformationSpecs

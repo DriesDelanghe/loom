@@ -18,6 +18,7 @@ export function InspectorPanel({ schemaId, field, isReadOnly, schemaRole, onClos
   // Create mode state
   const [newPath, setNewPath] = useState('')
   const [newFieldType, setNewFieldType] = useState<'Scalar' | 'Object' | 'Array'>('Scalar')
+  const [newArrayElementType, setNewArrayElementType] = useState<'scalar' | 'object'>('scalar') // For Array fields
   const [newScalarType, setNewScalarType] = useState<string>('String')
   const [newElementSchemaKey, setNewElementSchemaKey] = useState<string>('')
   const [newElementSchemaId, setNewElementSchemaId] = useState<string | null>(null)
@@ -29,6 +30,7 @@ export function InspectorPanel({ schemaId, field, isReadOnly, schemaRole, onClos
   const [isEditing, setIsEditing] = useState(false)
   const [editedPath, setEditedPath] = useState('')
   const [editedFieldType, setEditedFieldType] = useState<FieldType>('Scalar')
+  const [editedArrayElementType, setEditedArrayElementType] = useState<'scalar' | 'object'>('scalar') // For Array fields
   const [editedScalarType, setEditedScalarType] = useState<ScalarType | null>(null)
   const [editedElementSchemaKey, setEditedElementSchemaKey] = useState<string>('')
   const [editedElementSchemaId, setEditedElementSchemaId] = useState<string | null>(null)
@@ -43,8 +45,8 @@ export function InspectorPanel({ schemaId, field, isReadOnly, schemaRole, onClos
       const allSchemas = await schemasApi.getSchemas(schemaRole)
       return allSchemas.filter(s => s.status === 'Draft' || s.status === 'Published')
     },
-    enabled: (isCreateMode && newFieldType !== 'Scalar' && showSchemaAutocomplete) || 
-             (isEditing && editedFieldType !== 'Scalar' && showEditSchemaAutocomplete),
+    enabled: (isCreateMode && newFieldType !== 'Scalar' && newArrayElementType === 'object' && showSchemaAutocomplete) || 
+             (isEditing && editedFieldType !== 'Scalar' && editedArrayElementType === 'object' && showEditSchemaAutocomplete),
   })
 
   const filteredSchemas = useMemo(() => {
@@ -72,12 +74,21 @@ export function InspectorPanel({ schemaId, field, isReadOnly, schemaRole, onClos
       setEditedFieldType(field.fieldType)
       setEditedScalarType(field.scalarType)
       setEditedElementSchemaId(field.elementSchemaId)
+      // Determine array element type
+      if (field.fieldType === 'Array') {
+        if (field.scalarType) {
+          setEditedArrayElementType('scalar')
+        } else if (field.elementSchemaId) {
+          setEditedArrayElementType('object')
+        }
+      }
       setEditedRequired(field.required)
       setEditedDescription(field.description || '')
     } else if (isCreateMode) {
       // Reset create form
       setNewPath('')
       setNewFieldType('Scalar')
+      setNewArrayElementType('scalar')
       setNewScalarType('String')
       setNewElementSchemaKey('')
       setNewElementSchemaId(null)
@@ -105,12 +116,34 @@ export function InspectorPanel({ schemaId, field, isReadOnly, schemaRole, onClos
         setEditedElementSchemaId(null)
         setEditedElementSchemaKey('')
         setShowEditSchemaAutocomplete(false)
-      } else {
-        // Switching to Object/Array - clear scalar type
+      } else if (editedFieldType === 'Object') {
+        // Switching to Object - clear scalar type
         setEditedScalarType(null)
+      } else if (editedFieldType === 'Array') {
+        // Switching to Array - clear based on element type selection
+        if (editedArrayElementType === 'scalar') {
+          setEditedElementSchemaId(null)
+          setEditedElementSchemaKey('')
+          setShowEditSchemaAutocomplete(false)
+        } else {
+          setEditedScalarType(null)
+        }
       }
     }
-  }, [editedFieldType, isEditing, isCreateMode])
+  }, [editedFieldType, editedArrayElementType, isEditing, isCreateMode])
+
+  // Handle array element type changes in create mode
+  useEffect(() => {
+    if (isCreateMode && newFieldType === 'Array') {
+      if (newArrayElementType === 'scalar') {
+        setNewElementSchemaId(null)
+        setNewElementSchemaKey('')
+        setShowSchemaAutocomplete(false)
+      } else {
+        setNewScalarType('String') // Reset to default
+      }
+    }
+  }, [newFieldType, newArrayElementType, isCreateMode])
 
   const addFieldMutation = useMutation({
     mutationFn: () =>
@@ -118,8 +151,8 @@ export function InspectorPanel({ schemaId, field, isReadOnly, schemaRole, onClos
         schemaId,
         newPath,
         newFieldType,
-        newFieldType === 'Scalar' ? newScalarType : null,
-        newFieldType !== 'Scalar' ? newElementSchemaId : null,
+        (newFieldType === 'Scalar' || (newFieldType === 'Array' && newArrayElementType === 'scalar')) ? newScalarType : null,
+        (newFieldType === 'Object' || (newFieldType === 'Array' && newArrayElementType === 'object')) ? newElementSchemaId : null,
         newRequired,
         newDescription || undefined
       ),
@@ -132,12 +165,39 @@ export function InspectorPanel({ schemaId, field, isReadOnly, schemaRole, onClos
   const updateFieldMutation = useMutation({
     mutationFn: () => {
       if (!field) throw new Error('No field selected')
+      
+      // Determine scalar type value
+      let scalarTypeValue: string | null | undefined = undefined
+      if (editedFieldType === 'Scalar' || (editedFieldType === 'Array' && editedArrayElementType === 'scalar')) {
+        if (editedScalarType !== field.scalarType) {
+          scalarTypeValue = editedScalarType || null
+        }
+      } else {
+        // Clear scalar type when switching away from Scalar or scalar Array
+        if (field.scalarType) {
+          scalarTypeValue = null
+        }
+      }
+      
+      // Determine element schema ID value
+      let elementSchemaIdValue: string | null | undefined = undefined
+      if (editedFieldType === 'Object' || (editedFieldType === 'Array' && editedArrayElementType === 'object')) {
+        if (editedElementSchemaId !== field.elementSchemaId) {
+          elementSchemaIdValue = editedElementSchemaId || null
+        }
+      } else {
+        // Clear element schema ID when switching away from Object or object Array
+        if (field.elementSchemaId) {
+          elementSchemaIdValue = null
+        }
+      }
+      
       return schemasApi.updateField(
         field.id,
         editedPath !== field.path ? editedPath : undefined,
         editedFieldType !== field.fieldType ? editedFieldType : undefined,
-        editedFieldType === 'Scalar' && editedScalarType !== field.scalarType ? editedScalarType : (editedFieldType !== 'Scalar' ? null : undefined),
-        editedFieldType !== 'Scalar' && editedElementSchemaId !== field.elementSchemaId ? editedElementSchemaId : (editedFieldType === 'Scalar' ? null : undefined),
+        scalarTypeValue,
+        elementSchemaIdValue,
         editedRequired !== field.required ? editedRequired : undefined,
         editedDescription !== (field.description || '') ? editedDescription : undefined
       )
@@ -193,7 +253,10 @@ export function InspectorPanel({ schemaId, field, isReadOnly, schemaRole, onClos
                 onClick={handleSave}
                 disabled={
                   (isCreateMode
-                    ? !newPath.trim() || addFieldMutation.isPending || (newFieldType !== 'Scalar' && !newElementSchemaId)
+                    ? !newPath.trim() || addFieldMutation.isPending || 
+                      (newFieldType === 'Scalar' && !newScalarType) ||
+                      (newFieldType === 'Object' && !newElementSchemaId) ||
+                      (newFieldType === 'Array' && ((newArrayElementType === 'scalar' && !newScalarType) || (newArrayElementType === 'object' && !newElementSchemaId)))
                     : updateFieldMutation.isPending)
                 }
                 className="px-3 py-1 text-sm bg-loom-600 text-white rounded hover:bg-loom-700 disabled:opacity-50"
@@ -268,7 +331,116 @@ export function InspectorPanel({ schemaId, field, isReadOnly, schemaRole, onClos
                 </select>
               </div>
             )}
-            {newFieldType !== 'Scalar' && (
+            {newFieldType === 'Array' && (
+              <>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Array element type
+                  </label>
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="arrayElementType"
+                        value="scalar"
+                        checked={newArrayElementType === 'scalar'}
+                        onChange={(e) => setNewArrayElementType(e.target.value as 'scalar' | 'object')}
+                        className="rounded"
+                      />
+                      <span className="text-sm text-gray-700">Scalar value</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="arrayElementType"
+                        value="object"
+                        checked={newArrayElementType === 'object'}
+                        onChange={(e) => setNewArrayElementType(e.target.value as 'scalar' | 'object')}
+                        className="rounded"
+                      />
+                      <span className="text-sm text-gray-700">Object</span>
+                    </label>
+                  </div>
+                </div>
+                {newArrayElementType === 'scalar' && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Scalar Type
+                    </label>
+                    <select
+                      value={newScalarType}
+                      onChange={(e) => setNewScalarType(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-loom-500"
+                    >
+                      <option value="String">String</option>
+                      <option value="Integer">Integer</option>
+                      <option value="Decimal">Decimal</option>
+                      <option value="Boolean">Boolean</option>
+                      <option value="Date">Date</option>
+                      <option value="DateTime">DateTime</option>
+                      <option value="Time">Time</option>
+                      <option value="Guid">Guid</option>
+                    </select>
+                  </div>
+                )}
+                {newArrayElementType === 'object' && (
+                  <div className="relative">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Referenced Schema
+                    </label>
+                    <input
+                      type="text"
+                      value={newElementSchemaKey}
+                      onChange={(e) => {
+                        setNewElementSchemaKey(e.target.value)
+                        setShowSchemaAutocomplete(true)
+                        const matchingSchema = availableSchemas?.find(
+                          (s) => s.key.toLowerCase() === e.target.value.toLowerCase()
+                        )
+                        if (matchingSchema) {
+                          setNewElementSchemaId(matchingSchema.id)
+                        } else {
+                          setNewElementSchemaId(null)
+                        }
+                      }}
+                      onFocus={() => setShowSchemaAutocomplete(true)}
+                      onBlur={() => {
+                        setTimeout(() => setShowSchemaAutocomplete(false), 200)
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-loom-500"
+                      placeholder="Type to search for schema key..."
+                    />
+                    {showSchemaAutocomplete && filteredSchemas.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                        {filteredSchemas.map((schema) => (
+                          <div
+                            key={schema.id}
+                            onClick={() => {
+                              setNewElementSchemaKey(schema.key)
+                              setNewElementSchemaId(schema.id)
+                              setShowSchemaAutocomplete(false)
+                            }}
+                            className="px-3 py-2 hover:bg-loom-50 cursor-pointer text-sm"
+                          >
+                            <div className="font-medium text-gray-900">{schema.key}</div>
+                            {schema.description && (
+                              <div className="text-xs text-gray-500 truncate">{schema.description}</div>
+                            )}
+                            <div className="text-xs text-gray-400">v{schema.version} - {schema.status}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {newElementSchemaKey && !newElementSchemaId && (
+                      <div className="mt-1 text-xs text-red-600">
+                        Schema not found. Please select from the dropdown.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+            {newFieldType === 'Object' && (
               <div className="relative">
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Referenced Schema
@@ -416,7 +588,134 @@ export function InspectorPanel({ schemaId, field, isReadOnly, schemaRole, onClos
           </div>
         )}
 
-        {(isEditing ? editedFieldType : field.fieldType) !== 'Scalar' && (
+        {(isEditing ? editedFieldType : field.fieldType) === 'Array' && (
+          <>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Array element type
+              </label>
+              {isEditing ? (
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="editedArrayElementType"
+                      value="scalar"
+                      checked={editedArrayElementType === 'scalar'}
+                      onChange={(e) => setEditedArrayElementType(e.target.value as 'scalar' | 'object')}
+                      className="rounded"
+                    />
+                    <span className="text-sm text-gray-700">Scalar value</span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="editedArrayElementType"
+                      value="object"
+                      checked={editedArrayElementType === 'object'}
+                      onChange={(e) => setEditedArrayElementType(e.target.value as 'scalar' | 'object')}
+                      className="rounded"
+                    />
+                    <span className="text-sm text-gray-700">Object</span>
+                  </label>
+                </div>
+              ) : (
+                <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-sm text-gray-900">
+                  {field.scalarType ? 'Scalar value' : 'Object'}
+                </div>
+              )}
+            </div>
+            {isEditing && editedArrayElementType === 'scalar' && (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Scalar Type
+                </label>
+                <select
+                  value={editedScalarType || ''}
+                  onChange={(e) => setEditedScalarType(e.target.value as ScalarType || null)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-loom-500"
+                >
+                  <option value="">-- Select scalar type --</option>
+                  <option value="String">String</option>
+                  <option value="Integer">Integer</option>
+                  <option value="Decimal">Decimal</option>
+                  <option value="Boolean">Boolean</option>
+                  <option value="Date">Date</option>
+                  <option value="DateTime">DateTime</option>
+                  <option value="Time">Time</option>
+                  <option value="Guid">Guid</option>
+                </select>
+              </div>
+            )}
+            {isEditing && editedArrayElementType === 'object' && (
+              <div className="relative">
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Referenced Schema
+                </label>
+                <input
+                  type="text"
+                  value={editedElementSchemaKey}
+                  onChange={(e) => {
+                    setEditedElementSchemaKey(e.target.value)
+                    setShowEditSchemaAutocomplete(true)
+                    const matchingSchema = availableSchemas?.find(
+                      (s) => s.key.toLowerCase() === e.target.value.toLowerCase()
+                    )
+                    if (matchingSchema) {
+                      setEditedElementSchemaId(matchingSchema.id)
+                    } else {
+                      setEditedElementSchemaId(null)
+                    }
+                  }}
+                  onFocus={() => setShowEditSchemaAutocomplete(true)}
+                  onBlur={() => {
+                    setTimeout(() => setShowEditSchemaAutocomplete(false), 200)
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-loom-500"
+                  placeholder="Type to search for schema key..."
+                />
+                {showEditSchemaAutocomplete && filteredSchemas.length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                    {filteredSchemas.map((schema) => (
+                      <div
+                        key={schema.id}
+                        onClick={() => {
+                          setEditedElementSchemaKey(schema.key)
+                          setEditedElementSchemaId(schema.id)
+                          setShowEditSchemaAutocomplete(false)
+                        }}
+                        className="px-3 py-2 hover:bg-loom-50 cursor-pointer text-sm"
+                      >
+                        <div className="font-medium text-gray-900">{schema.key}</div>
+                        {schema.description && (
+                          <div className="text-xs text-gray-500 truncate">{schema.description}</div>
+                        )}
+                        <div className="text-xs text-gray-400">v{schema.version} - {schema.status}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {editedElementSchemaKey && !editedElementSchemaId && (
+                  <div className="mt-1 text-xs text-red-600">
+                    Schema not found. Please select from the dropdown.
+                  </div>
+                )}
+              </div>
+            )}
+            {!isEditing && (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  {field.scalarType ? 'Scalar Type' : 'Referenced Schema'}
+                </label>
+                <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-sm text-gray-900">
+                  {field.scalarType || (field.elementSchemaId ? (getSchemaKeyById(field.elementSchemaId) || field.elementSchemaId) : 'Not set')}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {(isEditing ? editedFieldType : field.fieldType) === 'Object' && (
           <div className="relative">
             <label className="block text-xs font-medium text-gray-700 mb-1">
               Referenced Schema

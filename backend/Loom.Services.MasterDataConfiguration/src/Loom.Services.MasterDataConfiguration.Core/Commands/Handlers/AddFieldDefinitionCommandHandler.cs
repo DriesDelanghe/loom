@@ -31,11 +31,31 @@ public class AddFieldDefinitionCommandHandler : ICommandHandler<AddFieldDefiniti
         if (existing != null)
             throw new InvalidOperationException($"Field with path '{command.Path}' already exists in schema {command.DataSchemaId}");
 
-        if (command.FieldType == FieldType.Scalar && !command.ScalarType.HasValue)
-            throw new InvalidOperationException("Scalar fields must have a ScalarType");
+        // Validate field type constraints
+        if (command.FieldType == FieldType.Scalar)
+        {
+            if (!command.ScalarType.HasValue)
+                throw new InvalidOperationException("Scalar fields must have a ScalarType");
+            if (command.ElementSchemaId.HasValue)
+                throw new InvalidOperationException("Scalar fields cannot have an ElementSchemaId");
+        }
+        else if (command.FieldType == FieldType.Object)
+        {
+            if (!command.ElementSchemaId.HasValue)
+                throw new InvalidOperationException("Object fields must have an ElementSchemaId");
+            if (command.ScalarType.HasValue)
+                throw new InvalidOperationException("Object fields cannot have a ScalarType");
+        }
+        else if (command.FieldType == FieldType.Array)
+        {
+            var hasScalarType = command.ScalarType.HasValue;
+            var hasElementSchemaId = command.ElementSchemaId.HasValue;
 
-        if (command.FieldType != FieldType.Scalar && !command.ElementSchemaId.HasValue)
-            throw new InvalidOperationException("Object and Array fields must have an ElementSchemaId");
+            if (!hasScalarType && !hasElementSchemaId)
+                throw new InvalidOperationException("Array field must define an element type (either ScalarType for scalar arrays or ElementSchemaId for object arrays)");
+            if (hasScalarType && hasElementSchemaId)
+                throw new InvalidOperationException("Array field cannot define both scalar and object element types");
+        }
 
         if (command.ElementSchemaId.HasValue)
         {

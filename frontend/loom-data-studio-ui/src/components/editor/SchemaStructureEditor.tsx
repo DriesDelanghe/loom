@@ -106,8 +106,13 @@ export function SchemaStructureEditor({
                       )}
                     </div>
                     <div className="text-xs text-gray-500 mt-0.5">
-                      {field.fieldType}
-                      {field.fieldType === 'Scalar' && field.scalarType && ` (${field.scalarType})`}
+                      {field.fieldType === 'Array' && field.scalarType
+                        ? `${field.scalarType}[]`
+                        : field.fieldType === 'Array' && field.elementSchemaId
+                        ? 'Object[]'
+                        : field.fieldType === 'Scalar' && field.scalarType
+                        ? `${field.fieldType} (${field.scalarType})`
+                        : field.fieldType}
                     </div>
                   </div>
                   {!isReadOnly && (

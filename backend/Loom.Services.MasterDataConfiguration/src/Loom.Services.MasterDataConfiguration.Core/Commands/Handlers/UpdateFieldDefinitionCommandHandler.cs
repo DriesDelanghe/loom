@@ -40,6 +40,32 @@ public class UpdateFieldDefinitionCommandHandler : ICommandHandler<UpdateFieldDe
         if (command.Description != null)
             field.Description = command.Description;
 
+        // Validate field type constraints after update
+        if (field.FieldType == FieldType.Scalar)
+        {
+            if (!field.ScalarType.HasValue)
+                throw new InvalidOperationException("Scalar fields must have a ScalarType");
+            if (field.ElementSchemaId.HasValue)
+                throw new InvalidOperationException("Scalar fields cannot have an ElementSchemaId");
+        }
+        else if (field.FieldType == FieldType.Object)
+        {
+            if (!field.ElementSchemaId.HasValue)
+                throw new InvalidOperationException("Object fields must have an ElementSchemaId");
+            if (field.ScalarType.HasValue)
+                throw new InvalidOperationException("Object fields cannot have a ScalarType");
+        }
+        else if (field.FieldType == FieldType.Array)
+        {
+            var hasScalarType = field.ScalarType.HasValue;
+            var hasElementSchemaId = field.ElementSchemaId.HasValue;
+
+            if (!hasScalarType && !hasElementSchemaId)
+                throw new InvalidOperationException("Array field must define an element type (either ScalarType for scalar arrays or ElementSchemaId for object arrays)");
+            if (hasScalarType && hasElementSchemaId)
+                throw new InvalidOperationException("Array field cannot define both scalar and object element types");
+        }
+
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return true;
